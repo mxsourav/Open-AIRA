@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CodeSentinel</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter&family=JetBrains+Mono&display=swap" rel="stylesheet" />
+
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <div class="nt-canvas"></div>
+
+    <nav id="mainNav">
+        <a class="nav-brand">CODESENTINEL</a>
+
+        <div class="nav-menu">
+            <a href="#home" class="nav-link active">Home</a>
+            <a href="#codesentinel" class="nav-link">Debug</a>
+        </div>
+
+        <div class="nav-actions">
+            <button class="theme-toggle" id="themeBtn">⚙</button>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="grid-interface">
+            <section class="widget hero-widget" id="home">
+                <div class="hero-content">
+                    <div class="status-tag">
+                        <span class="red-dot"></span>
+                        <span>STATUS //</span>
+                        <span id="status-text">INITIALIZING</span>
+                    </div>
+
+                    <h1 class="hero-title">
+                        <span class="dot-matrix">AI DEBUG SYSTEM</span>
+                        CODESENTINEL
+                    </h1>
+
+                    <p class="hero-desc">
+                        AI-powered debugging trainer. Not just answers - learn to solve yourself.
+                    </p>
+                </div>
+            </section>
+
+            <section class="widget codesentinel-widget" id="codesentinel">
+                <span class="label">CodeSentinel</span>
+
+                <div class="play-header">
+                    <div>
+                        <h2 class="play-title">Debug. Learn. Improve.</h2>
+                        <p class="section-desc">Think first. AI guides you step by step.</p>
+                    </div>
+
+                    <div class="play-chips">
+                        <span class="chip">MODE: <b id="modeLabel">DEBUG</b></span>
+                        <span class="chip">STATUS: <b id="csStatus">IDLE</b></span>
+                    </div>
+                </div>
+
+                <div class="play-grid">
+                    <div class="play-panel">
+                        <div class="mono">Response</div>
+                        <div id="chatBox">&gt; System ready...</div>
+                    </div>
+
+                    <div class="play-panel">
+                        <div class="mono">Input Code</div>
+
+                        <textarea id="codeInput" placeholder="// paste your code here..."></textarea>
+
+                        <div class="btn-row">
+                            <button class="btn-system" onclick="sendCode()">Run</button>
+                            <button class="btn-system btn-ghost" onclick="clearChat()">Clear</button>
+                        </div>
+
+                        <div class="mode-buttons">
+                            <button class="btn-system btn-mini" onclick="setMode('debug')">Debug</button>
+                            <button class="btn-system btn-mini btn-ghost" onclick="setMode('fix')">Fix</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <footer>
+                <div class="footer-left">
+                    <div class="footer-strong">
+                        mx_sourav // CodeSentinel_V_1
+                    </div>
+                    <div>
+                        © <span id="yearNow">2026</span>
+                        <span class="footer-strong">MaxArtist</span>. Built by
+                        <a class="footer-link" href="https://github.com/mxsourav" target="_blank" rel="noopener">MX
+                            SOURAV</a>.
+                    </div>
+                    <div class="legal">
+                        a portable AI-powered debugging trainer that promotes active learning. “Nothing OS”
+                        style is
+                        used as design inspiration only. No affiliation with Nothing
+                        Technology Limited.
+                    </div>
+                </div>
+                <div class="footer-right">
+                    <span>DESIGNED_IN_OWN_LAB</span>
+                    <span>BUILD: <span id="buildStamp">LIVE</span></span>
+                </div>
+            </footer>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
