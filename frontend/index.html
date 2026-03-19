@@ -56,7 +56,7 @@
                 <div class="api-register-card">
                     <div class="api-register-copy">
                         <h2 class="play-title">API Registration</h2>
-                        <p class="section-desc">Enter your AI assistant API key and submit it before CodeSentinel can start.</p>
+                        <p class="section-desc">Enter your own AI assistant API key. It stays only in your current browser session and is not stored on the server.</p>
                     </div>
 
                     <div class="api-register-form">
@@ -66,6 +66,7 @@
                             <button class="api-remove-btn" id="apiRemoveBtn" onclick="removeApiKey()">Remove API Key</button>
                         </div>
                         <div class="mono api-register-status" id="apiStatusText">API key required before start.</div>
+                        <div class="api-privacy-note">Privacy note: your key stays only in this browser session and is cleared when you remove it or close the session.</div>
                     </div>
                 </div>
             </section>
@@ -218,6 +219,7 @@
         </div>
     </main>
 
+    <script src="config.js"></script>
     <script src="app.js"></script>
 </body>
 

@@ -1,30 +1,61 @@
 # CodeSentinel
 
-User Interface For Portable AI-Powered Debugging.
+Portable AI-powered debugging trainer with guided coaching, direct fix mode, and progress tracking.
 
 ## Overview
 
-CodeSentinel is a portable AI-powered debugging interface with a futuristic web UI and a lightweight Flask backend. It is designed to help users paste code, get AI-assisted debugging feedback, and learn through guided responses instead of only receiving direct fixes.
+CodeSentinel is a browser-first debugging trainer built to help users think through bugs instead of jumping straight to the final answer. It has two main workflows:
 
-## Features
+- `Debug` mode: guided coaching with thoughts, hints, progress tracking, and stats
+- `Fix` mode: corrected code plus a separate change log
 
-- Clean debugging dashboard with a Nothing-inspired visual style
-- Dark and light theme switching
-- Animated status text in the hero section
-- Code input panel with response output area
-- Debug and Fix mode controls
-- Flask backend API for AI-powered debugging responses
-- Device status endpoints prepared for future ESP32 integration
-- Responsive frontend layout for desktop and smaller screens
+The current production-ready architecture is:
+
+- static frontend on Vercel
+- Flask backend on Render or Railway
+- each user brings their own Gemini API key
+- the key is stored only in that user's browser session
+- the backend does not store one shared key for everyone
+
+## Key Features
+
+- Guided debugging flow with `Send Thought`, `Next Hint`, and `I Did It`
+- Direct fix mode with syntax-highlighted corrected code
+- Separate change-log output in fix mode
+- Progress bar with red, yellow, and green stages
+- Stats tracking for debug runs, thoughts, hints, wrong turns, bug reads, and best progress
+- API registration gate before the app unlocks
+- `/help`, `clear`, and `clr` commands
+- Dark and light theme support
+- Portable static frontend + lightweight Flask backend
+
+## Privacy Model
+
+CodeSentinel now uses a safer per-user API flow:
+
+- every user enters their own API key
+- the key is stored in `sessionStorage` in that browser session only
+- the key is not stored in the backend
+- the key is removed when the user clicks `Remove API Key` or the browser session ends
+
+Important:
+
+- your frontend source is still visible to visitors because it is a web app
+- the backend still receives the user's API key in each request so it can talk to Gemini
+- the backend no longer keeps one global key or one shared in-memory session for all users
 
 ## Tech Stack
 
-- HTML5
-- CSS3
+- HTML
+- CSS
 - JavaScript
 - Python
 - Flask
+- Flask-CORS
+- Requests
 - Gemini API
+- Vercel
+- Render or Railway
 
 ## Project Structure
 
@@ -34,82 +65,189 @@ CodeSentinel/
 |-- backend/
 |   `-- server.py
 |-- frontend/
+|   |-- app.js
+|   |-- config.js
 |   |-- index.html
 |   |-- style.css
-|   `-- app.js
+|   `-- vercel.json
+|-- Procfile
+|-- railway.json
+|-- render.yaml
+|-- requirements.txt
 `-- README.md
 ```
 
-## How It Works
+## Local Setup
 
-The frontend provides the interface where users can paste code and choose a debugging mode. When `Run` is clicked, the frontend sends the code to the Flask backend at `http://127.0.0.1:5000/debug`. The backend forwards the prompt to the Gemini API and returns the AI response back to the UI.
+### 1. Install dependencies
 
-## Setup
-
-### 1. Clone the repository
-
-```bash
-git clone <your-repo-link>
-cd CodeSentinel
-```
-
-### 2. Install backend dependencies
-
-```bash
-pip install flask requests
-```
-
-### 3. Set your Gemini API key
-
-On Windows PowerShell:
+From the repo root:
 
 ```powershell
-$env:GEMINI_API_KEY="your_api_key_here"
+pip install -r requirements.txt
 ```
 
-### 4. Run the backend
+### 2. Run the backend
 
-```bash
+```powershell
 cd backend
 python server.py
 ```
 
-The backend will start on:
+Backend default:
 
 ```text
 http://127.0.0.1:5000
 ```
 
-### 5. Open the frontend
+### 3. Run the frontend
 
-Open `frontend/index.html` in your browser.
+Open a second terminal:
 
-## API Endpoints
+```powershell
+cd frontend
+python -m http.server 5500
+```
 
-### `POST /debug`
+Frontend default:
 
-Sends code to the AI debugging trainer and returns the generated response.
+```text
+http://127.0.0.1:5500
+```
 
-### `GET /device-status`
+### 4. Use the app
 
-Returns the current device state.
+1. Open the frontend URL
+2. Enter your own API key in `API Registration`
+3. Click `Submit API Key`
+4. Choose `Debug` or `Fix`
+5. Start using CodeSentinel
 
-### `POST /update`
+## How Debug Mode Works
 
-Updates the in-memory device state for future hardware integration.
+1. Paste broken code
+2. Click `Run`
+3. CodeSentinel asks where you think the problem is
+4. Use `Send Thought` to submit your guess
+5. Use `Next Hint` when needed
+6. Watch stats and progress change as you move closer or farther from the fix
+7. Finish with `I Did It` or by submitting the correct fix
 
-## Usage
+## How Fix Mode Works
 
-- Open the frontend in your browser.
-- Paste your code into the input panel.
-- Click `Run` to send the code to the backend.
-- Read the returned AI debugging response in the response panel.
-- Use `Debug` or `Fix` mode depending on your workflow.
-- Toggle the theme using the settings button in the navbar.
+1. Switch to `Fix`
+2. Paste code
+3. Click `Run`
+4. Read the corrected code in the fixed-code card
+5. Read the AI change summary in the change-log card
+6. Use the copy icon to copy only the corrected code
 
-## Vision
+## Deployment
 
-CodeSentinel is built to make debugging feel interactive, guided, and approachable. The aim is to create a portable AI-powered debugging experience that encourages problem solving and active learning instead of passive copy-paste fixing.
+## Backend on Render
+
+This repo already includes:
+
+- [render.yaml](./render.yaml)
+- [Procfile](./Procfile)
+- [requirements.txt](./requirements.txt)
+
+Recommended Render setup:
+
+1. Create a new `Web Service`
+2. Connect your private GitHub repo
+3. Keep the root directory as the repo root
+4. Render should use:
+   - build command: `pip install -r requirements.txt`
+   - start command: `gunicorn --chdir backend server:app`
+5. Deploy
+
+Default health endpoint:
+
+```text
+/api-key-status
+```
+
+## Backend on Railway
+
+This repo also includes:
+
+- [railway.json](./railway.json)
+
+Recommended Railway setup:
+
+1. Create a new project from GitHub
+2. Use the repo root
+3. Railway will use:
+   - start command: `gunicorn --chdir backend server:app`
+
+## Frontend on Vercel
+
+Frontend deploy target:
+
+- set Vercel Root Directory to `frontend`
+
+The frontend folder already includes:
+
+- [frontend/vercel.json](./frontend/vercel.json)
+
+That file adds:
+
+- cleaner URLs
+- basic security headers
+- `no-store` caching for `config.js`
+
+### Production API URL
+
+Frontend API config lives in:
+
+- [frontend/config.js](./frontend/config.js)
+
+Local behavior:
+
+- `localhost` or `127.0.0.1` -> `http://127.0.0.1:5000`
+
+Production default:
+
+- `https://codesentinel-api.onrender.com`
+
+If your real backend URL is different, update this line in [frontend/config.js](./frontend/config.js).
+
+## Why This Launch Model Is Better
+
+Old risk:
+
+- one user could overwrite the API key for everyone
+- one user could remove the API key for everyone
+- in-memory server sessions were weak for multi-user hosting
+
+Current model:
+
+- each user uses their own API key
+- the key stays in that browser session only
+- requests are stateless
+- the backend does not depend on a shared session dictionary for user progress
+
+## Commands
+
+- `/help`
+- `clear`
+- `clr`
+
+## Current Limitations
+
+- the backend still sees the user API key in each request because it must forward prompts to Gemini
+- frontend code is public to browser users even if the GitHub repo is private
+- long-term secure account-based key management is not implemented yet
+- fix quality still depends on Gemini response quality
+
+## Recommended First Trial Launch
+
+- keep the repo private
+- deploy frontend on Vercel
+- deploy backend on Render
+- test with a small user group first
+- monitor API quota usage and error handling
 
 ## Author
 

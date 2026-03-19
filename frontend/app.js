@@ -53,7 +53,7 @@ document.getElementById("themeBtn").onclick = () => {
 
 // ===== STATE =====
 let mode = "debug";
-let sessionId = "";
+let debugState = null;
 let apiReady = false;
 
 const DONE_MESSAGE = "Yoo Thats My Boy You Did It";
@@ -78,6 +78,9 @@ const statsState = {
 
 const THOUGHT_INPUT_MIN_HEIGHT = 42;
 const THOUGHT_INPUT_MAX_LINES = 12;
+const APP_CONFIG = window.CODESENTINEL_CONFIG || {};
+const API_BASE_URL = String(APP_CONFIG.API_BASE_URL || "http://127.0.0.1:5000").replace(/\/+$/, "");
+const API_KEY_STORAGE_KEY = "codesentinel_user_api_key";
 
 function escapeHtml(value) {
   return String(value)
@@ -207,6 +210,29 @@ function autoGrowThoughtInput() {
   thoughtInput.style.overflowY = measuredHeight > maxVisibleHeight ? "auto" : "hidden";
 }
 
+function buildApiUrl(path) {
+  return `${API_BASE_URL}${path}`;
+}
+
+function getStoredApiKey() {
+  return sessionStorage.getItem(API_KEY_STORAGE_KEY) || "";
+}
+
+function storeApiKey(value) {
+  sessionStorage.setItem(API_KEY_STORAGE_KEY, value);
+}
+
+function clearStoredApiKey() {
+  sessionStorage.removeItem(API_KEY_STORAGE_KEY);
+}
+
+function handleApiKeyFailure(message) {
+  clearStoredApiKey();
+  debugState = null;
+  setCoachButtons(false);
+  setApiGate(false, message || "API key check failed. Enter your key again.");
+}
+
 function getStatsElements() {
   return {
     panel: document.getElementById("statsPanel"),
@@ -258,7 +284,7 @@ function setApiGate(ready, message = "") {
   }
 
   if (status) {
-    status.textContent = message || (ready ? "API key accepted. CodeSentinel is unlocked." : "API key required before start.");
+    status.textContent = message || (ready ? "API key ready in this browser session. It is not stored on the server." : "API key required before start.");
     status.classList.toggle("is-ready", ready);
     status.classList.toggle("is-error", !ready && Boolean(message));
   }
@@ -270,14 +296,14 @@ function setApiGate(ready, message = "") {
   }
 }
 
-async function syncApiStatus() {
-  try {
-    const res = await fetch("http://127.0.0.1:5000/api-key-status");
-    const data = await res.json();
-    setApiGate(Boolean(data.configured), data.configured ? "API key accepted. CodeSentinel is unlocked." : "API key required before start.");
-  } catch (error) {
-    setApiGate(false, "Backend not reachable. Start the server and submit your API key.");
-  }
+function syncApiStatus() {
+  const storedKey = getStoredApiKey();
+  setApiGate(
+    Boolean(storedKey),
+    storedKey
+      ? "API key ready in this browser session. It is not stored on the server."
+      : "API key required before start."
+  );
 }
 
 async function submitApiKey() {
@@ -290,7 +316,7 @@ async function submitApiKey() {
   }
 
   try {
-    const res = await fetch("http://127.0.0.1:5000/api-key", {
+    const res = await fetch(buildApiUrl("/api-key"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ api_key: key })
@@ -302,40 +328,23 @@ async function submitApiKey() {
       return;
     }
 
+    storeApiKey(key);
     input.value = "";
-    setApiGate(true, data.message || "API key accepted. CodeSentinel is unlocked.");
+    setApiGate(true, data.message || "API key ready in this browser session. It is not stored on the server.");
   } catch (error) {
-    setApiGate(false, error.message || "API key submission failed.");
+    setApiGate(false, "Backend not reachable. Start the server and submit your API key.");
   }
 }
 
-async function removeApiKey() {
-  if (!apiReady) {
-    setApiGate(false, "No API key is active right now.");
-    return;
-  }
-
-  try {
-    const res = await fetch("http://127.0.0.1:5000/api-key", {
-      method: "DELETE"
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      setApiGate(false, data.error || "Could not remove the API key.");
-      return;
-    }
-
-    document.getElementById("apiKeyInput").value = "";
-    document.getElementById("chatBox").innerHTML = "> API key removed. Submit a new key to start again.";
-    fixState.fixedCode = "";
-    fixState.changeLog = [];
-    renderFixResults();
-    resetSessionState();
-    setApiGate(false, data.message || "API key removed. Submit a new key to start again.");
-  } catch (error) {
-    setApiGate(false, error.message || "Could not remove the API key.");
-  }
+function removeApiKey() {
+  clearStoredApiKey();
+  document.getElementById("apiKeyInput").value = "";
+  document.getElementById("chatBox").innerHTML = "> API key removed. Submit a new key to start again.";
+  fixState.fixedCode = "";
+  fixState.changeLog = [];
+  renderFixResults();
+  resetSessionState();
+  setApiGate(false, "API key removed from this browser session.");
 }
 
 function clampProgress(value) {
@@ -559,7 +568,7 @@ function appendChat(text, options = {}) {
 }
 
 function resetSessionState() {
-  sessionId = "";
+  debugState = null;
   const thoughtInput = document.getElementById("thoughtInput");
   thoughtInput.value = "";
   autoGrowThoughtInput();
@@ -624,8 +633,11 @@ function handleServerCommand(data) {
 
 async function sendCode() {
   const code = document.getElementById("codeInput").value.trim();
+  const apiKey = getStoredApiKey();
 
-  if (!apiReady) {
+  if (handleLocalCommand(code)) return;
+
+  if (!apiReady || !apiKey) {
     appendChat("Register your API key first, then start debugging.", { lineClass: "chat-wrong-reply" });
     return;
   }
@@ -635,9 +647,8 @@ async function sendCode() {
     return;
   }
 
-  if (handleLocalCommand(code)) return;
-
   setCoachButtons(false);
+  debugState = null;
   setStatus("RUNNING", "running");
 
   if (mode === "fix") {
@@ -653,16 +664,21 @@ async function sendCode() {
   }
 
   try {
-    const res = await fetch("http://127.0.0.1:5000/debug", {
+    const res = await fetch(buildApiUrl("/debug"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, mode })
+      body: JSON.stringify({ code, mode, api_key: apiKey })
     });
 
     const data = await res.json();
     if (handleServerCommand(data)) return;
 
     if (!res.ok) {
+      if ((data.error || "").toLowerCase().includes("api key")) {
+        handleApiKeyFailure(data.error);
+        return;
+      }
+
       if (mode === "fix") {
         fixState.fixedCode = "// unable to generate fixed code right now";
         fixState.changeLog = [data.error || "Fix mode hit an error while reading the code."];
@@ -678,9 +694,12 @@ async function sendCode() {
     }
 
     if (mode === "fix") {
-      resetSessionState();
+      debugState = null;
+      setCoachButtons(false);
       fixState.fixedCode = data.fixed_code || "";
       fixState.changeLog = Array.isArray(data.change_log) ? data.change_log : [];
+      document.getElementById("thoughtInput").value = "";
+      autoGrowThoughtInput();
       renderFixResults();
       setStatus("OUTPUT", "output");
       return;
@@ -696,12 +715,22 @@ async function sendCode() {
       return;
     }
 
-    sessionId = data.session_id || "";
+    debugState = data.debug_state || {
+      code,
+      hint_step: 0,
+      bug_found: false,
+      last_thought: ""
+    };
     setCoachButtons(true);
     appendChat(data.message || "Where do you think the problem is?");
     setStatus("OUTPUT", "output");
     updateProgress(statsState.progress + 6, "Good start. Now tell the system where the bug may be.");
   } catch (error) {
+    if ((error.message || "").toLowerCase().includes("api key")) {
+      handleApiKeyFailure(error.message);
+      return;
+    }
+
     if (mode === "fix") {
       fixState.fixedCode = "// unable to generate fixed code right now";
       fixState.changeLog = [error.message || "Fix mode lost connection while talking to the server."];
@@ -718,13 +747,14 @@ async function sendCode() {
 
 async function submitThought() {
   const thought = document.getElementById("thoughtInput").value.trim();
+  const apiKey = getStoredApiKey();
 
-  if (!apiReady) {
+  if (!apiReady || !apiKey) {
     appendChat("Register your API key first, then send a thought.", { lineClass: "chat-wrong-reply" });
     return;
   }
 
-  if (!sessionId) {
+  if (!debugState || !debugState.code) {
     appendChat("Run the code first");
     return;
   }
@@ -741,13 +771,18 @@ async function submitThought() {
   setStatus("RUNNING", "running");
 
   try {
-    const res = await fetch("http://127.0.0.1:5000/submit-thought", {
+    const res = await fetch(buildApiUrl("/submit-thought"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: sessionId, thought })
+      body: JSON.stringify({ debug_state: debugState, thought, api_key: apiKey })
     });
 
     const data = await res.json();
+    if ((data.error || "").toLowerCase().includes("api key")) {
+      handleApiKeyFailure(data.error);
+      return;
+    }
+
     const replyClass = data.thought_state === "wrong" || data.thought_state === "wrong_fix" ? "chat-wrong-reply" : undefined;
     appendChat(data.message || data.error || "Error", { lineClass: replyClass });
 
@@ -758,6 +793,8 @@ async function submitThought() {
       resetSessionState();
       return;
     }
+
+    debugState = data.debug_state || debugState;
 
     if (data.thought_state === "correct_bug") {
       statsState.bugReads += 1;
@@ -771,6 +808,11 @@ async function submitThought() {
 
     setStatus(res.ok ? "OUTPUT" : "ERROR", res.ok ? "output" : "error");
   } catch (error) {
+    if ((error.message || "").toLowerCase().includes("api key")) {
+      handleApiKeyFailure(error.message);
+      return;
+    }
+
     appendChat(error.message || "Connection error", { lineClass: "chat-wrong-reply" });
     statsState.wrongTurns += 1;
     updateProgress(statsState.progress - 10, "Oops, the request failed. Try again.");
@@ -779,12 +821,14 @@ async function submitThought() {
 }
 
 async function nextHint() {
-  if (!apiReady) {
+  const apiKey = getStoredApiKey();
+
+  if (!apiReady || !apiKey) {
     appendChat("Register your API key first, then ask for hints.", { lineClass: "chat-wrong-reply" });
     return;
   }
 
-  if (!sessionId) {
+  if (!debugState || !debugState.code) {
     appendChat("Run the code first");
     return;
   }
@@ -794,15 +838,20 @@ async function nextHint() {
   appendChat("Asking for next hint...");
 
   try {
-    const res = await fetch("http://127.0.0.1:5000/hint", {
+    const res = await fetch(buildApiUrl("/hint"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: sessionId })
+      body: JSON.stringify({ debug_state: debugState, api_key: apiKey })
     });
 
     const data = await res.json();
+    if ((data.error || "").toLowerCase().includes("api key")) {
+      handleApiKeyFailure(data.error);
+      return;
+    }
 
     if (res.ok) {
+      debugState = data.debug_state || debugState;
       const hintText = escapeHtml(data.message || "Hint received.").replace(/\n/g, "<br>");
       appendChat(`<span class="chat-hint-icon">💡</span> <span class="chat-hint-text">${hintText}</span>`, {
         html: true,
@@ -818,6 +867,11 @@ async function nextHint() {
     updateProgress(statsState.progress - 8, "Oops, that hint request did not land. Try again.");
     setStatus("ERROR", "error");
   } catch (error) {
+    if ((error.message || "").toLowerCase().includes("api key")) {
+      handleApiKeyFailure(error.message);
+      return;
+    }
+
     appendChat(error.message || "Connection error");
     statsState.wrongTurns += 1;
     updateProgress(statsState.progress - 8, "Oops, the hint request failed. Try again.");
@@ -826,12 +880,14 @@ async function nextHint() {
 }
 
 async function markDone() {
-  if (!apiReady) {
+  const apiKey = getStoredApiKey();
+
+  if (!apiReady || !apiKey) {
     appendChat("Register your API key first, then finish the session.", { lineClass: "chat-wrong-reply" });
     return;
   }
 
-  if (!sessionId) {
+  if (!debugState || !debugState.code) {
     appendChat("Run the code first");
     return;
   }
@@ -839,18 +895,28 @@ async function markDone() {
   setStatus("RUNNING", "running");
 
   try {
-    const res = await fetch("http://127.0.0.1:5000/done", {
+    const res = await fetch(buildApiUrl("/done"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: sessionId })
+      body: JSON.stringify({ debug_state: debugState, api_key: apiKey })
     });
 
     const data = await res.json();
+    if ((data.error || "").toLowerCase().includes("api key")) {
+      handleApiKeyFailure(data.error);
+      return;
+    }
+
     appendChat(data.message || DONE_MESSAGE);
     updateProgress(100, "Session complete. Nice work debugging that one.");
     setStatus("DONE", "done");
     resetSessionState();
   } catch (error) {
+    if ((error.message || "").toLowerCase().includes("api key")) {
+      handleApiKeyFailure(error.message);
+      return;
+    }
+
     appendChat(error.message || "Connection error");
     statsState.wrongTurns += 1;
     updateProgress(statsState.progress - 8, "Oops, the finish request failed. Try again.");

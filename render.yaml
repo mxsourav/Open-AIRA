@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: codesentinel-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --chdir backend server:app
+    healthCheckPath: /api-key-status
