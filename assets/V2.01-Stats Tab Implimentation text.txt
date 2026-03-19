@@ -1,0 +1,39 @@
+Stats Tab Implementation v2.01
+=============================
+
+Feature added:
+A dedicated stats area below the response box in Debug mode only.
+
+What was added:
+- Stats panel under the response tab
+- Download Stats button
+- Progress bar with smooth animation
+- Progress color stages:
+  - 0 to 33.5 percent = red
+  - 33.6 to 66.5 percent = yellow
+  - 67 to 100 percent = green
+- Encouragement / setback message under the progress bar
+- Stats only visible while Debug mode is selected
+
+Tracked values:
+- Debug Runs
+- Thoughts Sent
+- Hints Used
+- Wrong Turns
+- Bug Reads
+- Progress percentage
+
+Behavior:
+- Progress starts when a debug run starts
+- Progress increases when the user moves closer to the bug or fix
+- Progress drops when the user moves away from the correct path
+- Progress reaches 100 percent on successful completion
+- Stats can be downloaded as a text file
+
+Files updated for this feature:
+- frontend/index.html
+- frontend/app.js
+- frontend/style.css
+
+Version note:
+This file documents the Stats tab implementation added after V2 as V2.01.

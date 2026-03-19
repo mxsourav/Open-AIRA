@@ -50,6 +50,26 @@
                 </div>
             </section>
 
+            <section class="widget api-widget" id="api-registration">
+                <span class="label">API Registration</span>
+
+                <div class="api-register-card">
+                    <div class="api-register-copy">
+                        <h2 class="play-title">API Registration</h2>
+                        <p class="section-desc">Enter your AI assistant API key and submit it before CodeSentinel can start.</p>
+                    </div>
+
+                    <div class="api-register-form">
+                        <input id="apiKeyInput" class="api-key-input" type="password" placeholder="Paste your AI assistant API key here" />
+                        <div class="btn-row api-register-actions">
+                            <button class="btn-system" id="apiSubmitBtn" onclick="submitApiKey()">Submit API Key</button>
+                            <button class="api-remove-btn" id="apiRemoveBtn" onclick="removeApiKey()">Remove API Key</button>
+                        </div>
+                        <div class="mono api-register-status" id="apiStatusText">API key required before start.</div>
+                    </div>
+                </div>
+            </section>
+
             <section class="widget codesentinel-widget" id="codesentinel">
                 <span class="label">CodeSentinel by MX100RAV</span>
 
@@ -66,43 +86,114 @@
                 </div>
 
                 <div class="play-grid">
-                    <div class="play-panel">
+                    <div class="play-panel response-panel">
                         <div class="mono">Response</div>
                         <div id="chatBox">&gt; System ready...</div>
+
+                        <div class="stats-panel" id="statsPanel">
+                            <div class="stats-head">
+                                <div class="mono">Stats</div>
+                                <span class="stats-progress-text" id="statProgress">0%</span>
+                            </div>
+
+                            <div class="progress-wrap">
+                                <div class="progress-track">
+                                    <div class="progress-fill" id="progressFill"></div>
+                                </div>
+                                <div class="stats-note" id="statsNote">Start a debug run and the tracker will wake up.</div>
+                            </div>
+
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <span class="stat-label">Debug Runs</span>
+                                    <span class="stat-value" id="statRuns">0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Thoughts Sent</span>
+                                    <span class="stat-value" id="statThoughts">0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Hints Used</span>
+                                    <span class="stat-value" id="statHints">0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Wrong Turns</span>
+                                    <span class="stat-value stat-bad" id="statWrongTurns">0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Bug Reads</span>
+                                    <span class="stat-value stat-good" id="statBugReads">0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Best Progress</span>
+                                    <span class="stat-value" id="statBestProgress">0%</span>
+                                </div>
+                            </div>
+
+                            <div class="stats-actions">
+                                <button class="btn-system btn-tiny btn-ghost" id="resetStatsBtn">Reset Stats</button>
+                                <button class="btn-system btn-tiny btn-ghost" id="downloadStatsBtn">Download Stats</button>
+                            </div>
+                        </div>
+
+                        <div class="fix-results-panel" id="fixResultsPanel">
+                            <div class="fix-card fix-code-card">
+                                <div class="fix-card-head">
+                                    <div class="mono">Fixed Code</div>
+                                    <button class="copy-icon-btn" id="copyFixedCodeBtn" type="button" aria-label="Copy fixed code" title="Copy code">
+                                        <svg class="copy-icon copy-icon-default" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="9" y="9" width="10" height="10" rx="2"></rect>
+                                            <path d="M5 15V7a2 2 0 0 1 2-2h8"></path>
+                                        </svg>
+                                        <svg class="copy-icon copy-icon-done" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M20 6 9 17l-5-5"></path>
+                                        </svg>
+                                        <span class="sr-only">Copy fixed code</span>
+                                    </button>
+                                </div>
+                                <pre class="fix-output-box" id="fixedCodeBox">// fixed code will appear here...</pre>
+                            </div>
+
+                            <div class="fix-card change-log-card">
+                                <div class="mono">Change Log</div>
+                                <div class="change-log-box" id="changeLogBox">Fix mode will show what the AI changed here.</div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="play-panel">
-                        <div class="mono">Input Code</div>
+                    <div class="play-panel input-panel">
+                        <div class="mono panel-main-label">Controls</div>
+                        <div class="input-stack">
+                            <div class="control-card mode-card">
+                                <div class="mono">Work Mode</div>
+                                <div class="mode-buttons mode-card-buttons">
+                                    <button class="btn-system btn-mini" id="debugModeBtn" onclick="setMode('debug')">Debug</button>
+                                    <button class="btn-system btn-mini btn-ghost" id="fixModeBtn" onclick="setMode('fix')">Fix</button>
+                                </div>
+                            </div>
 
-                        <textarea id="codeInput" placeholder="// paste your code here..."></textarea>
+                            <div class="control-card">
+                                <div class="mono">Input Code</div>
+                                <textarea id="codeInput" placeholder="// paste your code here..."></textarea>
+                                <div class="btn-row input-actions">
+                                    <button class="btn-system" onclick="sendCode()">Run</button>
+                                    <button class="btn-system btn-ghost" onclick="clearChat()">Clear</button>
+                                </div>
+                            </div>
 
-                        <input id="thoughtInput" class="coach-input" type="text"
-                            placeholder="where do you think the problem is?" />
-
-                        <div class="btn-row">
-                            <button class="btn-system" onclick="sendCode()">Run</button>
-                            <button class="btn-system btn-ghost" onclick="clearChat()">Clear</button>
-                        </div>
-
-                        <div class="btn-row coach-actions">
-                            <button class="btn-system btn-mini btn-ghost" id="thoughtBtn" onclick="submitThought()"
-                                disabled>Send Thought</button>
-                            <button class="btn-system btn-mini" id="hintBtn" onclick="nextHint()" disabled>Next
-                                Hint</button>
-                            <button class="btn-system btn-mini btn-ghost" id="doneBtn" onclick="markDone()" disabled>I
-                                Did It</button>
-                        </div>
-
-                        <div class="mode-buttons">
-                            <button class="btn-system btn-mini" id="debugModeBtn"
-                                onclick="setMode('debug')">Debug</button>
-                            <button class="btn-system btn-mini btn-ghost" id="fixModeBtn"
-                                onclick="setMode('fix')">Fix</button>
+                            <div class="control-card">
+                                <div class="mono">Thought Input</div>
+                                <textarea id="thoughtInput" class="coach-input"
+                                    placeholder="where do you think the problem is?"></textarea>
+                                <div class="btn-row coach-actions">
+                                    <button class="btn-system btn-mini btn-ghost" id="thoughtBtn" onclick="submitThought()" disabled>Send Thought</button>
+                                    <button class="btn-system btn-mini" id="hintBtn" onclick="nextHint()" disabled>Next Hint</button>
+                                    <button class="btn-system btn-mini btn-ghost" id="doneBtn" onclick="markDone()" disabled>I Did It</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </section>
-
             <footer>
                 <div class="footer-left">
                     <div class="footer-strong">
@@ -131,3 +222,6 @@
 </body>
 
 </html>
+
+
+
