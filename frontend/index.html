@@ -25,7 +25,7 @@
         </div>
 
         <div class="nav-actions">
-            <button class="theme-toggle" id="themeBtn">⚙</button>
+            <button class="theme-toggle" id="themeBtn">&#9881;</button>
         </div>
     </nav>
 
@@ -51,7 +51,7 @@
             </section>
 
             <section class="widget codesentinel-widget" id="codesentinel">
-                <span class="label">CodeSentinel</span>
+                <span class="label">CodeSentinel by MX100RAV</span>
 
                 <div class="play-header">
                     <div>
@@ -76,14 +76,28 @@
 
                         <textarea id="codeInput" placeholder="// paste your code here..."></textarea>
 
+                        <input id="thoughtInput" class="coach-input" type="text"
+                            placeholder="where do you think the problem is?" />
+
                         <div class="btn-row">
                             <button class="btn-system" onclick="sendCode()">Run</button>
                             <button class="btn-system btn-ghost" onclick="clearChat()">Clear</button>
                         </div>
 
+                        <div class="btn-row coach-actions">
+                            <button class="btn-system btn-mini btn-ghost" id="thoughtBtn" onclick="submitThought()"
+                                disabled>Send Thought</button>
+                            <button class="btn-system btn-mini" id="hintBtn" onclick="nextHint()" disabled>Next
+                                Hint</button>
+                            <button class="btn-system btn-mini btn-ghost" id="doneBtn" onclick="markDone()" disabled>I
+                                Did It</button>
+                        </div>
+
                         <div class="mode-buttons">
-                            <button class="btn-system btn-mini" onclick="setMode('debug')">Debug</button>
-                            <button class="btn-system btn-mini btn-ghost" onclick="setMode('fix')">Fix</button>
+                            <button class="btn-system btn-mini" id="debugModeBtn"
+                                onclick="setMode('debug')">Debug</button>
+                            <button class="btn-system btn-mini btn-ghost" id="fixModeBtn"
+                                onclick="setMode('fix')">Fix</button>
                         </div>
                     </div>
                 </div>
@@ -95,20 +109,18 @@
                         mx_sourav // CodeSentinel_V_1
                     </div>
                     <div>
-                        © <span id="yearNow">2026</span>
+                        &copy; <span id="yearNow">2026</span>
                         <span class="footer-strong">MaxArtist</span>. Built by
                         <a class="footer-link" href="https://github.com/mxsourav" target="_blank" rel="noopener">MX
                             SOURAV</a>.
                     </div>
                     <div class="legal">
-                        a portable AI-powered debugging trainer that promotes active learning. “Nothing OS”
-                        style is
-                        used as design inspiration only. No affiliation with Nothing
-                        Technology Limited.
+                        A portable AI-powered debugging trainer that promotes active learning. Nothing OS style is used
+                        as design inspiration only. No affiliation with Nothing Technology Limited.
                     </div>
                 </div>
                 <div class="footer-right">
-                    <span>DESIGNED_IN_OWN_LAB</span>
+                    <span>DESIGNED_IN_OWN_LAB_ROOM_5</span>
                     <span>BUILD: <span id="buildStamp">LIVE</span></span>
                 </div>
             </footer>
