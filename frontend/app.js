@@ -615,7 +615,7 @@ function setBetaStatusText(message) {
 function formatBetaRank(meta = betaAccessMeta) {
   if (!meta) return "";
   if (meta.master) return "WElcome Dev-100RAV";
-  if (meta.testerNumber) return `#${String(meta.testerNumber).padStart(2, "0")}`;
+  if (meta.testerNumber) return `You are #${String(meta.testerNumber).padStart(2, "0")} tester`;
   return "";
 }
 
