@@ -41,7 +41,7 @@
 
                     <h1 class="hero-title">
                         <span class="dot-matrix">AI DEBUG SYSTEM</span>
-                        CODESENTINEL
+                        <img class="hero-logo" id="heroLogo" src="assets/logo_black.png" alt="CodeSentinel" />
                     </h1>
 
                     <p class="hero-desc">
@@ -56,7 +56,7 @@
                 <div class="api-register-card">
                     <div class="api-register-copy">
                         <h2 class="play-title">API Registration</h2>
-                        <p class="section-desc">Enter your own AI assistant API key. It stays only in your current browser session and is not stored on the server.</p>
+                        <p class="section-desc">Enter your own AI assistant API key to unlock CodeSentinel for this session. It stays only in your current browser session, is not stored on the server, and lets you test the full debug and fix workflow safely with your own access.</p>
                     </div>
 
                     <div class="api-register-form">
@@ -92,48 +92,98 @@
                         <div id="chatBox">&gt; System ready...</div>
 
                         <div class="stats-panel" id="statsPanel">
-                            <div class="stats-head">
-                                <div class="mono">Stats</div>
-                                <span class="stats-progress-text" id="statProgress">0%</span>
+                            <div class="stats-section basic-stats-section">
+                                <div class="stats-head">
+                                    <div class="mono">Stats</div>
+                                    <span class="stats-progress-text" id="statProgress">0%</span>
+                                </div>
+
+                                <div class="progress-wrap">
+                                    <div class="progress-track">
+                                        <div class="progress-fill" id="progressFill"></div>
+                                    </div>
+                                    <div class="stats-note" id="statsNote">Start a debug run and the tracker will wake up.</div>
+                                </div>
+
+                                <div class="stats-grid">
+                                    <div class="stat-item">
+                                        <span class="stat-label">Debug Runs</span>
+                                        <span class="stat-value" id="statRuns">0</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Thoughts Sent</span>
+                                        <span class="stat-value" id="statThoughts">0</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Hints Used</span>
+                                        <span class="stat-value" id="statHints">0</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Wrong Turns</span>
+                                        <span class="stat-value stat-bad" id="statWrongTurns">0</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Bug Reads</span>
+                                        <span class="stat-value stat-good" id="statBugReads">0</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Best Progress</span>
+                                        <span class="stat-value" id="statBestProgress">0%</span>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div class="progress-wrap">
-                                <div class="progress-track">
-                                    <div class="progress-fill" id="progressFill"></div>
-                                </div>
-                                <div class="stats-note" id="statsNote">Start a debug run and the tracker will wake up.</div>
+                            <div class="advanced-toggle-row">
+                                <button class="btn-system btn-tiny btn-ghost advanced-toggle-btn" id="toggleAdvancedStatsBtn" type="button" aria-expanded="false">Show Advanced Stats</button>
                             </div>
 
-                            <div class="stats-grid">
-                                <div class="stat-item">
-                                    <span class="stat-label">Debug Runs</span>
-                                    <span class="stat-value" id="statRuns">0</span>
+                            <div class="advanced-stats-panel" id="advancedStatsPanel">
+                                <div class="advanced-stats-head">
+                                    <div class="mono">Advanced Stats</div>
                                 </div>
-                                <div class="stat-item">
-                                    <span class="stat-label">Thoughts Sent</span>
-                                    <span class="stat-value" id="statThoughts">0</span>
+
+                                <div class="advanced-progress-card">
+                                    <div class="advanced-progress-top">
+                                        <span class="advanced-progress-label">Learning Progress</span>
+                                        <span class="advanced-progress-value" id="advancedProgressPercent">0%</span>
+                                    </div>
+                                    <div class="advanced-progress-track">
+                                        <div class="advanced-progress-fill" id="advancedProgressFill"></div>
+                                    </div>
                                 </div>
-                                <div class="stat-item">
-                                    <span class="stat-label">Hints Used</span>
-                                    <span class="stat-value" id="statHints">0</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-label">Wrong Turns</span>
-                                    <span class="stat-value stat-bad" id="statWrongTurns">0</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-label">Bug Reads</span>
-                                    <span class="stat-value stat-good" id="statBugReads">0</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-label">Best Progress</span>
-                                    <span class="stat-value" id="statBestProgress">0%</span>
+
+                                <div class="advanced-stat-grid">
+                                    <div class="advanced-stat-card stat-danger-card">
+                                        <span class="advanced-stat-label">Give Up Rate</span>
+                                        <span class="advanced-stat-value stat-danger-text" id="advancedGiveUpRate">0%</span>
+                                    </div>
+                                    <div class="advanced-stat-card stat-warning-card">
+                                        <span class="advanced-stat-label">Hint Dependency</span>
+                                        <span class="advanced-stat-value stat-warning-text" id="advancedHintDependency">0%</span>
+                                    </div>
+                                    <div class="advanced-stat-card stat-positive-card">
+                                        <span class="advanced-stat-label">Independent Solve Streak</span>
+                                        <span class="advanced-stat-value stat-positive-text" id="advancedSolveStreak">0</span>
+                                    </div>
+                                    <div class="advanced-stat-card stat-neutral-card">
+                                        <span class="advanced-stat-label">Time to Solve</span>
+                                        <span class="advanced-stat-value stat-neutral-text" id="advancedTimeToSolve">0s</span>
+                                    </div>
+                                    <div class="advanced-stat-card stat-warning-card">
+                                        <span class="advanced-stat-label">First Try Accuracy</span>
+                                        <span class="advanced-stat-value stat-warning-text" id="advancedFirstTryAccuracy">0%</span>
+                                    </div>
+                                    <div class="advanced-stat-card stat-danger-card">
+                                        <span class="advanced-stat-label">Wrong Turns</span>
+                                        <span class="advanced-stat-value stat-danger-text" id="advancedWrongTurns">0</span>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="stats-actions">
+                            <div class="stats-actions advanced-stats-actions">
                                 <button class="btn-system btn-tiny btn-ghost" id="resetStatsBtn">Reset Stats</button>
                                 <button class="btn-system btn-tiny btn-ghost" id="downloadStatsBtn">Download Stats</button>
+                                <button class="btn-system btn-tiny advanced-download-btn" id="downloadAdvancedStatsBtn">Download Full Record</button>
                             </div>
                         </div>
 
@@ -187,9 +237,36 @@
                                 <textarea id="thoughtInput" class="coach-input"
                                     placeholder="where do you think the problem is?"></textarea>
                                 <div class="btn-row coach-actions">
-                                    <button class="btn-system btn-mini btn-ghost" id="thoughtBtn" onclick="submitThought()" disabled>Send Thought</button>
+                                    <button class="btn-system btn-mini btn-ghost" id="thoughtBtn" onclick="submitThought()" disabled>Send</button>
                                     <button class="btn-system btn-mini" id="hintBtn" onclick="nextHint()" disabled>Next Hint</button>
                                     <button class="btn-system btn-mini btn-ghost" id="doneBtn" onclick="markDone()" disabled>I Did It</button>
+                                </div>
+
+                                <div class="debug-mode-shell" id="debugModePanel">
+                                    <div class="mono">Debug Mode</div>
+                                    <div class="debug-mode-selector" id="debugModeSelector" data-active="beginner">
+                                        <span class="debug-mode-highlight" id="debugModeHighlight"></span>
+                                        <button class="debug-mode-option is-active" type="button" data-debug-mode="beginner">Beginner</button>
+                                        <button class="debug-mode-option" type="button" data-debug-mode="intermediate">Intermediate</button>
+                                        <button class="debug-mode-option" type="button" data-debug-mode="pro">Pro</button>
+                                    </div>
+
+                                    <div class="debug-mode-card" id="debugModeCard">
+                                        <div class="debug-mode-section debug-mode-section-allowed">
+                                            <div class="debug-mode-section-title">How AI Will Respond</div>
+                                            <div class="debug-mode-list" id="debugModeAllowedList"></div>
+                                        </div>
+
+                                        <div class="debug-mode-section debug-mode-section-restricted">
+                                            <div class="debug-mode-section-title">What You Won't Get</div>
+                                            <div class="debug-mode-list" id="debugModeRestrictedList"></div>
+                                        </div>
+
+                                        <div class="debug-mode-section debug-mode-section-bestfor">
+                                            <div class="debug-mode-section-title">Best For</div>
+                                            <div class="debug-mode-list" id="debugModeBestForList"></div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -198,7 +275,7 @@
             <footer>
                 <div class="footer-left">
                     <div class="footer-strong">
-                        mx_sourav // CodeSentinel_V_1
+                        mx_sourav // CodeSentinel_V_3.0 Beta
                     </div>
                     <div>
                         &copy; <span id="yearNow">2026</span>
@@ -213,7 +290,7 @@
                 </div>
                 <div class="footer-right">
                     <span>DESIGNED_IN_OWN_LAB_ROOM_5</span>
-                    <span>BUILD: <span id="buildStamp">LIVE</span></span>
+                    <span>LAST UPDATE: <span id="buildStamp" class="footer-timer">00h 00m 00s passed</span></span>
                 </div>
             </footer>
         </div>

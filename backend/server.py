@@ -32,6 +32,48 @@ COMMAND_ALIASES = {
     "/help": "help"
 }
 
+DEBUG_MODES = {
+    "beginner": {
+        "initial": (
+            "Use beginner coaching style. Break the problem into small steps, ask guiding questions when helpful, "
+            "explain mistakes clearly, and encourage the student's own thinking. Do not give the direct final answer "
+            "or a full instant fix."
+        ),
+        "thought": (
+            "Use beginner coaching style. Make replies warm, clear, and step-by-step. If the thought is wrong, say "
+            "it gently and redirect the student. Do not dump the final answer."
+        ),
+        "hint": (
+            "Use beginner coaching style. Give simple hints, explain what to inspect, and make the clue easy to follow."
+        ),
+    },
+    "intermediate": {
+        "initial": (
+            "Use intermediate coaching style. Give directional hints, highlight the key problem area, and keep the "
+            "reasoning partial. Expect the student to fill in missing steps."
+        ),
+        "thought": (
+            "Use intermediate coaching style. Be more concise than beginner mode, point toward the right area, and "
+            "avoid full step-by-step teaching or full solutions."
+        ),
+        "hint": (
+            "Use intermediate coaching style. Give sharper hints with less explanation depth. Keep the clue focused."
+        ),
+    },
+    "pro": {
+        "initial": (
+            "Use pro coaching style. Be terse, professional, and observation-driven. Point out only critical issues. "
+            "No hand-holding, no beginner framing, and no extra explanation unless needed."
+        ),
+        "thought": (
+            "Use pro coaching style. Keep replies short and direct. Confirm or reject the thought with minimal text."
+        ),
+        "hint": (
+            "Use pro coaching style. Give compact debugger-like hints, focused on the critical issue only."
+        ),
+    },
+}
+
 CODE_PATTERNS = [
     r"\bdef\b", r"\bclass\b", r"\bfunction\b", r"\breturn\b",
     r"\bif\b", r"\belse\b", r"\bfor\b", r"\bwhile\b",
@@ -53,6 +95,16 @@ def normalize_command(text):
     return COMMAND_ALIASES.get(stripped)
 
 
+def normalize_debug_mode(value):
+    raw = str(value or "").strip().lower()
+    return raw if raw in DEBUG_MODES else "beginner"
+
+
+def get_mode_instruction(debug_mode, stage):
+    selected_mode = normalize_debug_mode(debug_mode)
+    return DEBUG_MODES[selected_mode][stage]
+
+
 def get_api_key(data):
     api_key = str((data or {}).get("api_key", "")).strip()
     if not api_key:
@@ -72,7 +124,8 @@ def normalize_debug_state(raw_state):
         "code": str(state.get("code", "")).strip(),
         "hint_step": max(0, hint_step),
         "bug_found": bool(state.get("bug_found", False)),
-        "last_thought": str(state.get("last_thought", "")).strip()
+        "last_thought": str(state.get("last_thought", "")).strip(),
+        "debug_mode": normalize_debug_mode(state.get("debug_mode"))
     }
 
 
@@ -303,7 +356,7 @@ Rules:
     }
 
 
-def evaluate_thought(api_key, code, thought):
+def evaluate_thought(api_key, code, thought, debug_mode):
     prompt = f"""
 You are evaluating a student's debugging thought.
 
@@ -322,6 +375,8 @@ Return ONLY valid JSON in this exact shape:
 }}
 
 Rules:
+- Response mode: {normalize_debug_mode(debug_mode)}
+- {get_mode_instruction(debug_mode, "thought")}
 - bug_found is true only if the student correctly identified the real main bug.
 - fixed_code_provided is true only if the student has provided a corrected version of the code that fixes the main issue.
 - thought_state must be "correct_bug" only when the student clearly caught the real bug.
@@ -346,7 +401,7 @@ Rules:
     }
 
 
-def coach_after_bug_found(api_key, code, thought):
+def coach_after_bug_found(api_key, code, thought, debug_mode):
     prompt = f"""
 You are CodeSentinel, a friendly debugging coach.
 
@@ -364,6 +419,8 @@ Return ONLY valid JSON in this exact shape:
 }}
 
 Rules:
+- Response mode: {normalize_debug_mode(debug_mode)}
+- {get_mode_instruction(debug_mode, "thought")}
 - fixed_code_provided is true only if the student has now given the corrected code or a clearly correct final fix.
 - thought_state is "close_fix" only if the student is moving in the right direction.
 - thought_state is "wrong_fix" if the student is still going the wrong way.
@@ -425,6 +482,7 @@ def debug_code():
     data = request.get_json() or {}
     code = str(data.get("code", "")).strip()
     mode = str(data.get("mode", "debug")).strip().lower()
+    debug_mode = normalize_debug_mode(data.get("debug_mode"))
 
     if not code:
         return jsonify({"error": "No code provided"}), 400
@@ -478,14 +536,15 @@ def debug_code():
 You are CodeSentinel, a friendly debugging coach.
 
 The user is in {mode} mode.
+The selected debug mode is {debug_mode}.
 Here is the code:
 {code}
 
+{get_mode_instruction(debug_mode, "initial")}
+
 Do not solve the bug yet.
 Ask the student where they think the problem is.
-Use very easy English.
-Keep it to 1 or 2 short sentences.
-Sound encouraging.
+Keep it short.
 """
 
     try:
@@ -494,7 +553,8 @@ Sound encouraging.
                 "code": code,
                 "hint_step": 0,
                 "bug_found": False,
-                "last_thought": ""
+                "last_thought": "",
+                "debug_mode": debug_mode
             },
             "message": call_gemini(api_key, prompt)
         })
@@ -507,6 +567,7 @@ def submit_thought():
     data = request.get_json() or {}
     thought = str(data.get("thought", "")).strip()
     state = normalize_debug_state(data.get("debug_state"))
+    state["debug_mode"] = normalize_debug_mode(data.get("debug_mode") or state.get("debug_mode"))
 
     if not state["code"]:
         return jsonify({"error": "Session not found. Run the code again."}), 400
@@ -523,7 +584,7 @@ def submit_thought():
 
     try:
         if state["bug_found"]:
-            follow_up = coach_after_bug_found(api_key, state["code"], thought)
+            follow_up = coach_after_bug_found(api_key, state["code"], thought, state["debug_mode"])
 
             if follow_up["fixed_code_provided"]:
                 return jsonify({
@@ -540,7 +601,7 @@ def submit_thought():
                 "debug_state": state
             })
 
-        evaluation = evaluate_thought(api_key, state["code"], thought)
+        evaluation = evaluate_thought(api_key, state["code"], thought, state["debug_mode"])
 
         if evaluation["fixed_code_provided"]:
             return jsonify({
@@ -576,12 +637,13 @@ The student is trying to debug this code:
 The student thinks the issue might be here:
 {thought}
 
-Reply in very easy English.
+Response mode: {state['debug_mode']}
+{get_mode_instruction(state['debug_mode'], "thought")}
+
+Reply in short clear English.
 Do not confirm the full answer yet.
 Do not give the final fix.
-In 1 or 2 short sentences:
-1. Encourage the student.
-2. Say whether they should keep checking that area or look a little earlier/later.
+In 1 or 2 short sentences, say whether they should keep checking that area or look a little earlier or later.
 """
 
         try:
@@ -599,6 +661,7 @@ In 1 or 2 short sentences:
 def next_hint():
     data = request.get_json() or {}
     state = normalize_debug_state(data.get("debug_state"))
+    state["debug_mode"] = normalize_debug_mode(data.get("debug_mode") or state.get("debug_mode"))
 
     if not state["code"]:
         return jsonify({"error": "Session not found. Run the code again."}), 400
@@ -620,9 +683,11 @@ The student is debugging this code:
 The student's current guess is:
 {thought}
 
+Response mode: {state['debug_mode']}
+{get_mode_instruction(state['debug_mode'], "hint")}
+
 Give hint number {state['hint_step']}.
 Rules:
-- Use very easy English.
 - Keep it short.
 - Do not sound technical unless needed.
 - Give only one hint.
