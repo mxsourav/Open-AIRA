@@ -586,7 +586,13 @@ function clearStoredApiKey() {
 }
 
 function isBetaAccessError(message) {
-  return String(message || "").toLowerCase().includes("beta access key");
+  const text = String(message || "").toLowerCase();
+  return text.includes("beta access key") || text.includes("invitation key is already used");
+}
+
+function isUsedInviteMessage(message) {
+  const text = String(message || "").toLowerCase();
+  return text.includes("invitation key is already used") && text.includes("100rav");
 }
 
 function getDefaultApiGateMessage() {
@@ -604,6 +610,12 @@ function setBetaStatusText(message) {
   const status = document.getElementById("betaAccessStatus");
   if (!status) return;
   const text = String(message || "");
+  if (isUsedInviteMessage(text)) {
+    const subject = encodeURIComponent("Need a new CodeSentinel beta key");
+    const body = encodeURIComponent("Hey 100RAV,\n\nThis beta invitation key is already used. Please send me a new beta access key.\n\nThanks.");
+    status.innerHTML = `Sorry Bro but this Invitation key is already used. ask <a class="beta-access-owner-link" href="mailto:mx100rav@gmail.com?subject=${subject}&body=${body}">100RAV</a> for new key.`;
+    return;
+  }
   if (text.startsWith("⚠")) {
     const body = escapeHtml(text.replace(/^⚠\s*/, ""));
     status.innerHTML = `<span class="beta-access-status-icon">⚠</span><span class="beta-access-status-text">${body}</span>`;

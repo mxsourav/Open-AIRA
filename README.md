@@ -9,11 +9,12 @@ CodeSentinel is a browser-first debugging trainer built to help users think thro
 - `Debug` mode: guided coaching with thoughts, hints, progress tracking, and stats
 - `Fix` mode: corrected code plus a separate change log
 
-The current production-ready architecture is:
+The current beta architecture is:
 
 - static frontend on Vercel
 - Flask backend on Render or Railway
-- each user brings their own Gemini API key
+- private beta-access gate before API registration unlocks
+- each user brings their own supported AI provider API key
 - the key is stored only in that user's browser session
 - the backend does not store one shared key for everyone
 
@@ -24,6 +25,8 @@ The current production-ready architecture is:
 - Separate change-log output in fix mode
 - Progress bar with red, yellow, and green stages
 - Stats tracking for debug runs, thoughts, hints, wrong turns, bug reads, and best progress
+- Private beta-access gate with invite keys and a master bypass key
+- Multi-provider API support: Gemini, OpenAI, Grok, Claude, and DeepSeek
 - API registration gate before the app unlocks
 - `/help`, `clear`, and `clr` commands
 - Dark and light theme support
@@ -33,6 +36,7 @@ The current production-ready architecture is:
 
 CodeSentinel now uses a safer per-user API flow:
 
+- invited users unlock the beta first with a beta-access key
 - every user enters their own API key
 - the key is stored in `sessionStorage` in that browser session only
 - the key is not stored in the backend
@@ -41,7 +45,7 @@ CodeSentinel now uses a safer per-user API flow:
 Important:
 
 - your frontend source is still visible to visitors because it is a web app
-- the backend still receives the user's API key in each request so it can talk to Gemini
+- the backend still receives the user's API key in each request so it can talk to the selected AI provider
 - the backend no longer keeps one global key or one shared in-memory session for all users
 
 ## Tech Stack
@@ -54,6 +58,10 @@ Important:
 - Flask-CORS
 - Requests
 - Gemini API
+- OpenAI API
+- xAI API
+- Anthropic API
+- DeepSeek API
 - Vercel
 - Render or Railway
 
@@ -118,10 +126,12 @@ http://127.0.0.1:5500
 ### 4. Use the app
 
 1. Open the frontend URL
-2. Enter your own API key in `API Registration`
-3. Click `Submit API Key`
-4. Choose `Debug` or `Fix`
-5. Start using CodeSentinel
+2. Enter a valid beta-access key
+3. Choose a provider in `API Registration`
+4. Enter your own provider API key
+5. Click `Submit API Key`
+6. Choose `Debug` or `Fix`
+7. Start using CodeSentinel
 
 ## How Debug Mode Works
 
@@ -223,6 +233,7 @@ Old risk:
 
 Current model:
 
+- private beta keys gate access before API registration
 - each user uses their own API key
 - the key stays in that browser session only
 - requests are stateless
@@ -236,10 +247,11 @@ Current model:
 
 ## Current Limitations
 
-- the backend still sees the user API key in each request because it must forward prompts to Gemini
+- the backend still sees the user API key in each request because it must forward prompts to the selected provider
 - frontend code is public to browser users even if the GitHub repo is private
 - long-term secure account-based key management is not implemented yet
-- fix quality still depends on Gemini response quality
+- beta invite-key claims depend on backend storage persistence across redeploys/restarts
+- fix quality still depends on the selected provider response quality
 
 ## Recommended First Trial Launch
 

@@ -264,11 +264,11 @@ def validate_beta_access_key_value(access_key, beta_client_id=""):
 
     client_id = str(beta_client_id or "").strip()
     if not client_id:
-        raise ValueError("Beta browser identity missing. Refresh and enter your beta key again.")
+        raise ValueError("Sorry Bro but this Invitation key is already used. ask 100RAV for new key.")
 
     assigned_client_id = str(details.get("assigned_client_id", "")).strip()
     if assigned_client_id and assigned_client_id != client_id:
-        raise ValueError("This beta access key is already locked to another browser/device.")
+        raise ValueError("Sorry Bro but this Invitation key is already used. ask 100RAV for new key.")
 
     if not assigned_client_id:
         registry["keys"][candidate]["assigned_client_id"] = client_id

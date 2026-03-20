@@ -722,6 +722,17 @@ nav {
   color: #f5f5f5;
 }
 
+.beta-access-owner-link {
+  color: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.beta-access-owner-link:hover {
+  opacity: 0.86;
+}
+
 .beta-access-status.is-ready {
   color: var(--nothing-green);
 }
@@ -2035,6 +2046,10 @@ footer {
 
 [data-theme="light"] .beta-access-status-text {
   color: #333;
+}
+
+[data-theme="light"] .beta-access-owner-link {
+  color: inherit;
 }
 
 [data-theme="light"] .beta-access-rank {
