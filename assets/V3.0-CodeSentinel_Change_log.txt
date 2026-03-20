@@ -1,0 +1,93 @@
+CodeSentinel V3.0 Beta Change Notes
+===================================
+
+Project:
+CodeSentinel
+
+Purpose of V3.0 Beta:
+Upgrade CodeSentinel from a trial launch build into a stronger public beta with richer debugging feedback, mode-based AI behavior, better branding, and a more polished live product feel.
+
+Main changes added in V3.0 Beta:
+
+1. Advanced Stats system added
+- A new Advanced Stats section was added below the normal stats area.
+- It includes Learning Progress, Give Up Rate, Hint Dependency, Independent Solve Streak, Time to Solve, First Try Accuracy, and Wrong Turns.
+- Advanced Stats is hidden by default and can be shown only when needed.
+- The Response and Controls panels expand together when Advanced Stats is opened so the layout stays aligned.
+
+2. Full-record export added
+- Normal stats can still be downloaded separately.
+- A second export option now downloads a combined full debugging record with both normal and advanced stats.
+- The full-record export is available only when Advanced Stats is enabled.
+
+3. Debug Mode Selector system added
+- The old assist panel was replaced with a real Debug Mode Selector.
+- Users can now choose Beginner, Intermediate, or Pro.
+- Only one active mode is shown at a time through a segmented selector and a single dynamic mode card.
+- The panel explains:
+  - How AI Will Respond
+  - What You Won't Get
+  - Best For
+
+4. AI behavior now changes by debug mode
+- Debug mode selection is no longer just visual.
+- The selected mode is sent to the backend with requests.
+- Beginner gives more guided, teaching-style responses.
+- Intermediate gives directional help with less explanation.
+- Pro gives short, minimal debugging-style observations.
+
+5. Thought Input behavior refined by state
+- Thought Input now changes its max visible lines depending on app state.
+- In Debug mode with Advanced Stats off, users get a larger free-writing area before scrolling starts.
+- In tighter layouts like Advanced Stats on, the input stays more compact to protect the panel balance.
+- Fix mode keeps its own larger writing limit.
+
+6. Button system redesigned
+- Main action buttons were upgraded with a more premium interactive feel.
+- Hover, press, glow, gradient, and depth styling were improved.
+- Button roles were clarified visually:
+  - Run = primary
+  - Clear = ghost
+  - Send = cyan
+  - Next Hint = yellow
+  - I Did It = green
+  - Debug = warm
+  - Fix = neutral
+
+7. Hero branding improved
+- The large hero title text was replaced with a logo-based presentation.
+- Separate dark-mode and light-mode logo variants are now supported.
+- The hero card background was tuned to better match the logo background for cleaner blending.
+
+8. Footer versioning improved
+- Footer version text now reflects the V3.0 Beta build.
+- Build display was upgraded into a live release timer that shows how much time has passed since the latest release.
+- This gives the beta build a clearer live-product identity.
+
+9. Debug mode information panel improved
+- The lower-right debug information area became more useful and structured.
+- Instead of repeating generic help, it now explains each AI response mode clearly and professionally.
+- The panel adapts without breaking the existing controls layout.
+
+10. Public beta presentation polished
+- The interface now feels more like a real public beta product instead of only a test tool.
+- Branding, mode explanation, stats visibility, and release identity were all improved for launch readiness.
+
+Files mainly updated in V3.0 Beta:
+- backend/server.py
+- frontend/app.js
+- frontend/index.html
+- frontend/style.css
+
+Related assets updated in this phase:
+- assets/logo_black.png
+- assets/logo_white.png
+- frontend/assets/logo_black.png
+- frontend/assets/logo_white.png
+
+Verification done:
+- Python backend syntax check passed.
+- Frontend JavaScript syntax check passed.
+
+Version note:
+This file documents the major public-beta upgrades added after V2.9 as CodeSentinel V3.0 Beta.
