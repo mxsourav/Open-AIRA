@@ -2,13 +2,13 @@
 function initTypewriter() {
   const target = document.getElementById("status-text");
   const phrases = [
-    "Online",
-    "Available",
-    "Debugging code",
-    "Designing stuff",
-    "Crafting projects",
-    "Pentesting",
-    "Always Ready",
+    "System Ready",
+    "Debug Coach Active",
+    "Fix Workflow Online",
+    "Hints Standing By",
+    "Analyzing Logic",
+    "Training Debug Instincts",
+    "Ready For Your Bug",
   ];
 
   let i = 0;
@@ -65,8 +65,11 @@ document.getElementById("themeBtn").onclick = () => {
 let mode = "debug";
 let debugState = null;
 let apiReady = false;
+let betaAccessReady = false;
+let betaAccessMeta = null;
 let advancedStatsVisible = false;
 let debugMode = "beginner";
+let apiProvider = "gemini";
 let apiStatusTimer = null;
 
 const DONE_MESSAGE = "Yoo Thats My Boy You Did It";
@@ -140,6 +143,49 @@ const DEBUG_MODE_CONTENT = {
   },
 };
 
+const API_PROVIDER_OPTIONS = {
+  gemini: {
+    label: "Gemini",
+    badge: "G",
+    accent: "#173a74",
+    hint: "Google Gemini",
+    logo: "assets/providers/gemini-color.svg",
+    keyUrl: "https://aistudio.google.com/apikey"
+  },
+  openai: {
+    label: "OpenAI",
+    badge: "O",
+    accent: "#74aa9c",
+    hint: "OpenAI Platform",
+    logo: "assets/providers/openai-color.svg",
+    keyUrl: "https://platform.openai.com/api-keys"
+  },
+  xai: {
+    label: "Grok",
+    badge: "GX",
+    accent: "#d6e0f7",
+    hint: "xAI Grok",
+    logo: "assets/providers/grok-color.svg",
+    keyUrl: "https://console.x.ai/team/default/api-keys"
+  },
+  claude: {
+    label: "Claude",
+    badge: "CL",
+    accent: "#f28b54",
+    hint: "Anthropic Claude",
+    logo: "assets/providers/claude-color.svg",
+    keyUrl: "https://console.anthropic.com/settings/keys"
+  },
+  deepseek: {
+    label: "DeepSeek",
+    badge: "DS",
+    accent: "#4d6bfe",
+    hint: "DeepSeek API",
+    logo: "assets/providers/deepseek-color.svg",
+    keyUrl: "https://platform.deepseek.com/api_keys"
+  }
+};
+
 const statsState = {
   runs: 0,
   thoughts: 0,
@@ -165,8 +211,10 @@ const DEBUG_THOUGHT_INPUT_MAX_LINES_EXPANDED = 12;
 const FIX_THOUGHT_INPUT_MAX_LINES = 12;
 const APP_CONFIG = window.CODESENTINEL_CONFIG || {};
 const API_BASE_URL = String(APP_CONFIG.API_BASE_URL || "http://127.0.0.1:5000").replace(/\/+$/, "");
+const BETA_ACCESS_STORAGE_KEY = "codesentinel_beta_access_key";
 const API_KEY_STORAGE_KEY = "codesentinel_user_api_key";
-const RELEASE_TIMESTAMP = "2026-03-20T19:59:38+05:30";
+const API_PROVIDER_STORAGE_KEY = "codesentinel_api_provider";
+const RELEASE_TIMESTAMP = "2026-03-21T02:32:51+05:30";
 
 function escapeHtml(value) {
   return String(value)
@@ -175,6 +223,30 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function getProviderStatusClass(provider = apiProvider) {
+  const normalized = normalizeProvider(provider);
+  if (normalized === "gemini") return "api-provider-name-gemini";
+  if (normalized === "openai") return "api-provider-name-openai";
+  if (normalized === "xai") return "api-provider-name-xai";
+  if (normalized === "claude") return "api-provider-name-claude";
+  if (normalized === "deepseek") return "api-provider-name-deepseek";
+  return "";
+}
+
+function formatApiStatusMessage(message, provider = apiProvider) {
+  const providerLabel = getProviderLabel(provider);
+  const safeMessage = escapeHtml(message);
+  const safeLabel = escapeHtml(providerLabel);
+  const providerClass = getProviderStatusClass(provider);
+
+  if (!safeMessage.includes(safeLabel) || !providerClass) {
+    return safeMessage;
+  }
+
+  const styledLabel = `<span class="api-provider-status-name ${providerClass}">${safeLabel}</span>`;
+  return safeMessage.split(safeLabel).join(styledLabel);
 }
 
 function formatElapsedTime(ms) {
@@ -207,6 +279,104 @@ function startReleaseTimer() {
 
   updateTimer();
   window.setInterval(updateTimer, 1000);
+}
+
+function normalizeProvider(value) {
+  return API_PROVIDER_OPTIONS[value] ? value : "gemini";
+}
+
+function getProviderMeta(provider = apiProvider) {
+  return API_PROVIDER_OPTIONS[normalizeProvider(provider)] || API_PROVIDER_OPTIONS.gemini;
+}
+
+function getProviderLabel(provider = apiProvider) {
+  return getProviderMeta(provider).label;
+}
+
+function updateApiKeyPlaceholder() {
+  const input = document.getElementById("apiKeyInput");
+  if (!input) return;
+  input.placeholder = `Paste your ${getProviderLabel()} API key here`;
+}
+
+function renderApiAccessLinks() {
+  const list = document.getElementById("apiAccessLinks");
+  if (!list) return;
+
+  list.innerHTML = Object.entries(API_PROVIDER_OPTIONS)
+    .map(([providerId, details]) => `
+      <a
+        class="api-access-link${providerId === apiProvider ? " is-active" : ""}"
+        href="${escapeHtml(details.keyUrl || "#")}"
+        target="_blank"
+        rel="noopener noreferrer"
+        data-provider="${providerId}"
+        style="--provider-accent:${details.accent}"
+      >
+        <span class="api-access-mark">
+          <img
+            class="api-access-logo"
+            src="${escapeHtml(details.logo)}"
+            alt="${escapeHtml(details.label)} logo"
+            loading="lazy"
+            decoding="async"
+            onerror="this.style.display='none'; this.parentElement.querySelector('.api-access-badge').style.display='inline-flex';"
+          />
+          <span class="api-access-badge">${escapeHtml(details.badge)}</span>
+        </span>
+        <span class="api-access-name">Get ${escapeHtml(details.label)} API Key</span>
+      </a>
+    `)
+    .join("");
+}
+
+function renderProviderSelector() {
+  const grid = document.getElementById("apiProviderGrid");
+  if (!grid) return;
+
+  grid.innerHTML = Object.entries(API_PROVIDER_OPTIONS)
+    .map(([providerId, details]) => `
+      <button
+        class="api-provider-option${providerId === apiProvider ? " is-active" : ""}"
+        type="button"
+        data-provider="${providerId}"
+        data-tooltip="${escapeHtml(details.hint)}"
+        style="--provider-accent:${details.accent}"
+      >
+        <span class="api-provider-mark">
+          <img
+            class="api-provider-logo"
+            src="${escapeHtml(details.logo)}"
+            alt="${escapeHtml(details.label)} logo"
+            loading="lazy"
+            decoding="async"
+            onerror="this.style.display='none'; this.parentElement.querySelector('.api-provider-badge').style.display='inline-flex';"
+          />
+          <span class="api-provider-badge">${escapeHtml(details.badge)}</span>
+        </span>
+        <span class="api-provider-name">${escapeHtml(details.label)}</span>
+        <span class="api-provider-tooltip">${escapeHtml(details.hint)}</span>
+      </button>
+    `)
+    .join("");
+
+  updateApiKeyPlaceholder();
+  renderApiAccessLinks();
+}
+
+function setProvider(nextProvider) {
+  const normalized = normalizeProvider(nextProvider);
+  const previous = apiProvider;
+  apiProvider = normalized;
+  sessionStorage.setItem(API_PROVIDER_STORAGE_KEY, normalized);
+  renderProviderSelector();
+
+  if (apiReady && previous !== normalized) {
+    handleApiKeyFailure(`Provider changed to ${getProviderLabel(normalized)}. Submit a new ${getProviderLabel(normalized)} API key.`);
+    document.getElementById("apiKeyInput").value = "";
+  } else if (!apiReady) {
+    setApiGate(false, `Choose ${getProviderLabel(normalized)} and submit your API key to start.`);
+  }
 }
 
 const CODE_KEYWORDS = new Set([
@@ -342,12 +512,40 @@ function autoGrowThoughtInput() {
   thoughtInput.style.overflowY = measuredHeight > maxVisibleHeight ? "auto" : "hidden";
 }
 
+function syncBetaAccessInputMask() {
+  const input = document.getElementById("betaAccessInput");
+  if (!input) return;
+
+  const shouldMask = String(input.value || "").startsWith("6");
+  const nextType = shouldMask ? "password" : "text";
+
+  if (input.type !== nextType) {
+    input.type = nextType;
+  }
+}
+
 function buildApiUrl(path) {
   return `${API_BASE_URL}${path}`;
 }
 
+function getStoredBetaAccessKey() {
+  return localStorage.getItem(BETA_ACCESS_STORAGE_KEY) || "";
+}
+
+function storeBetaAccessKey(value) {
+  localStorage.setItem(BETA_ACCESS_STORAGE_KEY, value);
+}
+
+function clearStoredBetaAccessKey() {
+  localStorage.removeItem(BETA_ACCESS_STORAGE_KEY);
+}
+
 function getStoredApiKey() {
   return sessionStorage.getItem(API_KEY_STORAGE_KEY) || "";
+}
+
+function getStoredProvider() {
+  return normalizeProvider(sessionStorage.getItem(API_PROVIDER_STORAGE_KEY) || apiProvider);
 }
 
 function storeApiKey(value) {
@@ -358,12 +556,122 @@ function clearStoredApiKey() {
   sessionStorage.removeItem(API_KEY_STORAGE_KEY);
 }
 
+function isBetaAccessError(message) {
+  return String(message || "").toLowerCase().includes("beta access key");
+}
+
+function getDefaultApiGateMessage() {
+  if (!betaAccessReady) {
+    return "Enter your beta access key to unlock API registration.";
+  }
+
+  const providerLabel = getProviderLabel();
+  return apiReady
+    ? `${providerLabel} API key ready in this browser session. It is not stored on the server.`
+    : `Choose ${providerLabel} and submit your API key to start.`;
+}
+
+function setBetaStatusText(message) {
+  const status = document.getElementById("betaAccessStatus");
+  if (!status) return;
+  const text = String(message || "");
+  if (text.startsWith("⚠")) {
+    const body = escapeHtml(text.replace(/^⚠\s*/, ""));
+    status.innerHTML = `<span class="beta-access-status-icon">⚠</span><span class="beta-access-status-text">${body}</span>`;
+    return;
+  }
+  status.textContent = text;
+}
+
+function formatBetaRank(meta = betaAccessMeta) {
+  if (!meta) return "";
+  if (meta.master) return "WElcome Dev-100RAV";
+  if (meta.testerNumber) return `#${String(meta.testerNumber).padStart(2, "0")}`;
+  return "";
+}
+
+function syncBetaRank(meta = betaAccessMeta) {
+  const rank = document.getElementById("betaAccessRank");
+  if (!rank) return;
+
+  const text = betaAccessReady ? formatBetaRank(meta) : "";
+  rank.textContent = text;
+  rank.classList.toggle("is-visible", Boolean(text));
+  rank.classList.toggle("is-master", betaAccessReady && Boolean(meta && meta.master));
+}
+
+function syncBetaDependentUI() {
+  const apiWidget = document.getElementById("api-registration");
+  const widget = document.getElementById("codesentinel");
+  const apiInput = document.getElementById("apiKeyInput");
+  const apiSubmitBtn = document.getElementById("apiSubmitBtn");
+  const apiRemoveBtn = document.getElementById("apiRemoveBtn");
+  const widgetControls = [
+    document.getElementById("debugModeBtn"),
+    document.getElementById("fixModeBtn"),
+    document.getElementById("thoughtBtn"),
+    document.getElementById("hintBtn"),
+    document.getElementById("doneBtn"),
+    document.getElementById("codeInput"),
+    document.getElementById("thoughtInput")
+  ];
+  const widgetReady = betaAccessReady && apiReady;
+
+  if (apiWidget) {
+    apiWidget.classList.toggle("is-beta-locked", !betaAccessReady);
+  }
+
+  document.querySelectorAll(".api-provider-option").forEach((button) => {
+    button.disabled = !betaAccessReady;
+  });
+
+  if (apiInput) {
+    apiInput.disabled = !betaAccessReady;
+  }
+
+  if (apiSubmitBtn) {
+    apiSubmitBtn.disabled = !betaAccessReady;
+  }
+
+  if (apiRemoveBtn) {
+    apiRemoveBtn.disabled = !betaAccessReady || !apiReady;
+  }
+
+  if (widget) {
+    widget.classList.toggle("is-locked", !widgetReady);
+  }
+
+  widgetControls.forEach((el) => {
+    if (!el) return;
+    el.disabled = !widgetReady;
+  });
+
+  if (!widgetReady) {
+    setCoachButtons(false);
+    setStatus("LOCKED", "error");
+  } else {
+    setStatus("IDLE", "idle");
+  }
+}
+
+function handleBetaAccessFailure(message) {
+  clearStoredBetaAccessKey();
+  betaAccessReady = false;
+  betaAccessMeta = null;
+  const input = document.getElementById("betaAccessInput");
+  if (input) {
+    input.value = "";
+  }
+  syncBetaAccessInputMask();
+  setBetaGate(false, message || "Beta access key check failed. Enter a valid beta key to continue.");
+}
+
 function handleApiKeyFailure(message) {
   abandonActiveRun();
   clearStoredApiKey();
   debugState = null;
   setCoachButtons(false);
-  setApiGate(false, message || "API key check failed. Enter your key again.");
+  setApiGate(false, message || `${getProviderLabel()} API key check failed. Enter your key again.`);
 }
 
 function getStatsElements() {
@@ -401,7 +709,7 @@ function setApiStatusText(message, animate = false) {
   }
 
   if (!animate) {
-    status.textContent = message;
+    status.innerHTML = formatApiStatusMessage(message);
     return;
   }
 
@@ -416,6 +724,7 @@ function setApiStatusText(message, animate = false) {
       apiStatusTimer = setTimeout(typeNext, 22);
     } else {
       apiStatusTimer = null;
+      status.innerHTML = formatApiStatusMessage(message);
     }
   };
 
@@ -500,34 +809,32 @@ function toggleAdvancedStats() {
   syncAdvancedStatsUI();
 }
 
-function setApiGate(ready, message = "") {
-  apiReady = ready;
+function setBetaGate(ready, message = "", meta = null) {
+  betaAccessReady = ready;
+  betaAccessMeta = ready ? (meta || betaAccessMeta) : null;
 
-  const widget = document.getElementById("codesentinel");
-  const status = document.getElementById("apiStatusText");
-  const submitBtn = document.getElementById("apiSubmitBtn");
-  const removeBtn = document.getElementById("apiRemoveBtn");
-  const controls = [
-    document.getElementById("debugModeBtn"),
-    document.getElementById("fixModeBtn"),
-    document.getElementById("thoughtBtn"),
-    document.getElementById("hintBtn"),
-    document.getElementById("doneBtn"),
-    document.getElementById("codeInput"),
-    document.getElementById("thoughtInput")
-  ];
+  const card = document.getElementById("betaAccessCard");
+  const input = document.getElementById("betaAccessInput");
+  const submitBtn = document.getElementById("betaAccessSubmitBtn");
+  const removeBtn = document.getElementById("betaAccessRemoveBtn");
+  const status = document.getElementById("betaAccessStatus");
+  const statusMessage = message || (
+    ready
+      ? "Beta access key ready in this browser."
+      : "⚠ Enter your beta access key to unlock this beta build."
+  );
 
-  if (widget) {
-    widget.classList.toggle("is-locked", !ready);
+  if (card) {
+    card.classList.toggle("is-ready", ready);
   }
 
-  controls.forEach((el) => {
-    if (!el) return;
-    el.disabled = !ready;
-  });
+  if (input) {
+    input.disabled = ready;
+  }
+  syncBetaAccessInputMask();
 
   if (submitBtn) {
-    submitBtn.disabled = false;
+    submitBtn.disabled = ready;
   }
 
   if (removeBtn) {
@@ -535,56 +842,145 @@ function setApiGate(ready, message = "") {
   }
 
   if (status) {
-    const statusMessage = message || (ready ? "API key ready in this browser session. It is not stored on the server." : "API key required before start.");
     status.classList.toggle("is-ready", ready);
     status.classList.toggle("is-error", !ready && Boolean(message));
-    setApiStatusText(statusMessage, ready);
   }
 
-  if (!ready) {
-    setStatus("LOCKED", "error");
-  } else {
-    setStatus("IDLE", "idle");
+  setBetaStatusText(statusMessage);
+  syncBetaRank();
+  syncBetaDependentUI();
+  setApiGate(apiReady);
+}
+
+function setApiGate(ready, message = "") {
+  apiReady = ready;
+
+  const status = document.getElementById("apiStatusText");
+  syncBetaDependentUI();
+
+  if (status) {
+    const statusMessage = message || getDefaultApiGateMessage();
+    status.classList.toggle("is-ready", betaAccessReady && ready);
+    status.classList.toggle("is-error", betaAccessReady && !ready && Boolean(message));
+    setApiStatusText(statusMessage, betaAccessReady && ready);
   }
 }
 
 function syncApiStatus() {
+  apiProvider = getStoredProvider();
+  renderProviderSelector();
   const storedKey = getStoredApiKey();
-  setApiGate(
-    Boolean(storedKey),
-    storedKey
-      ? "API key ready in this browser session. It is not stored on the server."
-      : "API key required before start."
-  );
+  setApiGate(Boolean(storedKey));
+}
+
+async function syncBetaAccess() {
+  const storedKey = getStoredBetaAccessKey();
+
+  if (!storedKey) {
+    setBetaGate(false, "⚠ Enter your beta access key to unlock this beta build.");
+    return;
+  }
+
+  try {
+    const res = await fetch(buildApiUrl("/beta-access"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ beta_access_key: storedKey })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      handleBetaAccessFailure(data.error || "Beta access key check failed.");
+      return;
+    }
+
+    setBetaGate(true, data.message || "Beta access key ready in this browser.", {
+      label: data.label,
+      testerNumber: data.tester_number,
+      master: Boolean(data.master)
+    });
+  } catch (error) {
+    handleBetaAccessFailure("Beta access check failed. Try your beta key again.");
+  }
+}
+
+async function submitBetaAccess() {
+  const input = document.getElementById("betaAccessInput");
+  const betaKey = input.value.trim();
+
+  if (!betaKey) {
+    setBetaGate(false, "Enter your beta access key first.");
+    return;
+  }
+
+  try {
+    const res = await fetch(buildApiUrl("/beta-access"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ beta_access_key: betaKey })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setBetaGate(false, data.error || "Beta access key rejected.");
+      return;
+    }
+
+    storeBetaAccessKey(betaKey);
+    input.value = "";
+    setBetaGate(true, data.message || "Beta access key ready in this browser.", {
+      label: data.label,
+      testerNumber: data.tester_number,
+      master: Boolean(data.master)
+    });
+  } catch (error) {
+    setBetaGate(false, "Beta access server not reachable. Try again.");
+  }
+}
+
+function removeBetaAccess() {
+  clearStoredBetaAccessKey();
+  setBetaGate(false, "⚠ Beta access key removed from this browser.");
 }
 
 async function submitApiKey() {
   const input = document.getElementById("apiKeyInput");
   const key = input.value.trim();
 
+  if (!betaAccessReady) {
+    setBetaGate(false, "Enter your beta access key first.");
+    return;
+  }
+
   if (!key) {
     setApiGate(false, "Paste your API key first, then hit submit.");
     return;
   }
 
+  const betaAccessKey = getStoredBetaAccessKey();
+
   try {
     const res = await fetch(buildApiUrl("/api-key"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ api_key: key })
+      body: JSON.stringify({ api_key: key, provider: apiProvider, beta_access_key: betaAccessKey })
     });
     const data = await res.json();
 
     if (!res.ok) {
+      if (isBetaAccessError(data.error)) {
+        handleBetaAccessFailure(data.error);
+        return;
+      }
       setApiGate(false, data.error || "API key submission failed.");
       return;
     }
 
     storeApiKey(key);
     input.value = "";
-    setApiGate(true, data.message || "API key ready in this browser session. It is not stored on the server.");
+    setApiGate(true, data.message || `${getProviderLabel()} API key ready in this browser session. It is not stored on the server.`);
   } catch (error) {
-    setApiGate(false, "Backend not reachable. Start the server and submit your API key.");
+    setApiGate(false, `Backend not reachable for ${getProviderLabel()}. Start the server and submit your API key.`);
   }
 }
 
@@ -597,7 +993,7 @@ function removeApiKey() {
   fixState.changeLog = [];
   renderFixResults();
   resetSessionState();
-  setApiGate(false, "API key removed from this browser session.");
+  setApiGate(false, `${getProviderLabel()} API key removed from this browser session.`);
 }
 
 function clampProgress(value) {
@@ -1022,10 +1418,11 @@ function clearChat() {
 function showHelp() {
   appendChat('<span class="chat-help-title">How to use CodeSentinel:</span>', { html: true });
   appendChat('<span class="chat-help">1. Paste broken code in the input box.</span>', { html: true });
-  appendChat('<span class="chat-help">2. Click <span class="chat-help-btn">Run</span> to start debugging.</span>', { html: true });
-  appendChat('<span class="chat-help">3. Use <span class="chat-help-btn">Send Thought</span> to share your bug guess.</span>', { html: true });
-  appendChat('<span class="chat-help">4. Use <span class="chat-help-btn">Next Hint</span> if you want another clue.</span>', { html: true });
-  appendChat('<span class="chat-help">5. Use <span class="chat-help-btn">Fix</span> mode for direct corrected code.</span>', { html: true });
+  appendChat('<span class="chat-help">2. Click <span class="chat-help-btn">Run</span> or press <span class="chat-help-btn">Shift + Enter</span> in Input Code.</span>', { html: true });
+  appendChat('<span class="chat-help">3. Use <span class="chat-help-btn">Send</span> or press <span class="chat-help-btn">Shift + Enter</span> in Thought Input.</span>', { html: true });
+  appendChat('<span class="chat-help">4. Press normal <span class="chat-help-btn">Enter</span> for a new line while typing.</span>', { html: true });
+  appendChat('<span class="chat-help">5. Use <span class="chat-help-btn">Next Hint</span> if you want another clue.</span>', { html: true });
+  appendChat('<span class="chat-help">6. Use <span class="chat-help-btn">Fix</span> mode for direct corrected code.</span>', { html: true });
   appendChat('<span class="chat-help-command-label">Commands:</span> <span class="chat-help-command-value">/help, clear, clr</span>', { html: true });
 }
 
@@ -1068,8 +1465,14 @@ function handleServerCommand(data) {
 async function sendCode() {
   const code = document.getElementById("codeInput").value.trim();
   const apiKey = getStoredApiKey();
+  const betaAccessKey = getStoredBetaAccessKey();
 
   if (handleLocalCommand(code)) return;
+
+  if (!betaAccessReady || !betaAccessKey) {
+    appendChat("Enter your beta access key first, then continue.", { lineClass: "chat-wrong-reply" });
+    return;
+  }
 
   if (!apiReady || !apiKey) {
     appendChat("Register your API key first, then start debugging.", { lineClass: "chat-wrong-reply" });
@@ -1102,13 +1505,17 @@ async function sendCode() {
     const res = await fetch(buildApiUrl("/debug"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, mode, debug_mode: debugMode, api_key: apiKey })
+      body: JSON.stringify({ code, mode, debug_mode: debugMode, provider: apiProvider, api_key: apiKey, beta_access_key: betaAccessKey })
     });
 
     const data = await res.json();
     if (handleServerCommand(data)) return;
 
     if (!res.ok) {
+      if (isBetaAccessError(data.error)) {
+        handleBetaAccessFailure(data.error);
+        return;
+      }
       if ((data.error || "").toLowerCase().includes("api key")) {
         handleApiKeyFailure(data.error);
         return;
@@ -1155,7 +1562,8 @@ async function sendCode() {
       hint_step: 0,
       bug_found: false,
       last_thought: "",
-      debug_mode: debugMode
+      debug_mode: debugMode,
+      provider: apiProvider
     };
     setCoachButtons(true);
     appendChat(data.message || "Where do you think the problem is?");
@@ -1184,6 +1592,12 @@ async function sendCode() {
 async function submitThought() {
   const thought = document.getElementById("thoughtInput").value.trim();
   const apiKey = getStoredApiKey();
+  const betaAccessKey = getStoredBetaAccessKey();
+
+  if (!betaAccessReady || !betaAccessKey) {
+    appendChat("Enter your beta access key first, then continue.", { lineClass: "chat-wrong-reply" });
+    return;
+  }
 
   if (!apiReady || !apiKey) {
     appendChat("Register your API key first, then send a thought.", { lineClass: "chat-wrong-reply" });
@@ -1203,6 +1617,7 @@ async function submitThought() {
   statsState.thoughts += 1;
   noteThoughtAttempt();
   debugState.debug_mode = debugMode;
+  debugState.provider = apiProvider;
   appendChat(`My thought: ${thought}`);
   document.getElementById("thoughtInput").value = "";
   autoGrowThoughtInput();
@@ -1212,10 +1627,14 @@ async function submitThought() {
     const res = await fetch(buildApiUrl("/submit-thought"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ debug_state: debugState, thought, debug_mode: debugMode, api_key: apiKey })
+      body: JSON.stringify({ debug_state: debugState, thought, debug_mode: debugMode, provider: apiProvider, api_key: apiKey, beta_access_key: betaAccessKey })
     });
 
     const data = await res.json();
+    if (isBetaAccessError(data.error)) {
+      handleBetaAccessFailure(data.error);
+      return;
+    }
     if ((data.error || "").toLowerCase().includes("api key")) {
       handleApiKeyFailure(data.error);
       return;
@@ -1261,6 +1680,12 @@ async function submitThought() {
 
 async function nextHint() {
   const apiKey = getStoredApiKey();
+  const betaAccessKey = getStoredBetaAccessKey();
+
+  if (!betaAccessReady || !betaAccessKey) {
+    appendChat("Enter your beta access key first, then continue.", { lineClass: "chat-wrong-reply" });
+    return;
+  }
 
   if (!apiReady || !apiKey) {
     appendChat("Register your API key first, then ask for hints.", { lineClass: "chat-wrong-reply" });
@@ -1276,15 +1701,20 @@ async function nextHint() {
   setStatus("RUNNING", "running");
   appendChat("Asking for next hint...");
   debugState.debug_mode = debugMode;
+  debugState.provider = apiProvider;
 
   try {
     const res = await fetch(buildApiUrl("/hint"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ debug_state: debugState, debug_mode: debugMode, api_key: apiKey })
+      body: JSON.stringify({ debug_state: debugState, debug_mode: debugMode, provider: apiProvider, api_key: apiKey, beta_access_key: betaAccessKey })
     });
 
     const data = await res.json();
+    if (isBetaAccessError(data.error)) {
+      handleBetaAccessFailure(data.error);
+      return;
+    }
     if ((data.error || "").toLowerCase().includes("api key")) {
       handleApiKeyFailure(data.error);
       return;
@@ -1322,6 +1752,12 @@ async function nextHint() {
 
 async function markDone() {
   const apiKey = getStoredApiKey();
+  const betaAccessKey = getStoredBetaAccessKey();
+
+  if (!betaAccessReady || !betaAccessKey) {
+    appendChat("Enter your beta access key first, then continue.", { lineClass: "chat-wrong-reply" });
+    return;
+  }
 
   if (!apiReady || !apiKey) {
     appendChat("Register your API key first, then finish the session.", { lineClass: "chat-wrong-reply" });
@@ -1335,15 +1771,20 @@ async function markDone() {
 
   setStatus("RUNNING", "running");
   debugState.debug_mode = debugMode;
+  debugState.provider = apiProvider;
 
   try {
     const res = await fetch(buildApiUrl("/done"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ debug_state: debugState, debug_mode: debugMode, api_key: apiKey })
+      body: JSON.stringify({ debug_state: debugState, debug_mode: debugMode, provider: apiProvider, api_key: apiKey, beta_access_key: betaAccessKey })
     });
 
     const data = await res.json();
+    if (isBetaAccessError(data.error)) {
+      handleBetaAccessFailure(data.error);
+      return;
+    }
     if ((data.error || "").toLowerCase().includes("api key")) {
       handleApiKeyFailure(data.error);
       return;
@@ -1371,15 +1812,40 @@ async function markDone() {
 initTypewriter();
 startReleaseTimer();
 syncHeroLogo();
+apiProvider = getStoredProvider();
+renderProviderSelector();
 setCoachButtons(false);
 setMode("debug");
-setApiGate(false, "API key required before start.");
+setBetaGate(false, "⚠ Enter your beta access key to unlock this beta build.");
+setApiGate(false);
 updateStatsUI();
 renderFixResults();
 syncAdvancedStatsUI();
 document.getElementById("thoughtInput").addEventListener("input", autoGrowThoughtInput);
 autoGrowThoughtInput();
+document.getElementById("betaAccessInput").addEventListener("input", syncBetaAccessInputMask);
+document.getElementById("betaAccessInput").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  submitBetaAccess();
+});
+document.getElementById("codeInput").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || !event.shiftKey) return;
+  event.preventDefault();
+  sendCode();
+});
+document.getElementById("thoughtInput").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || !event.shiftKey) return;
+  event.preventDefault();
+  submitThought();
+});
 syncApiStatus();
+syncBetaAccess();
+document.getElementById("apiProviderGrid").addEventListener("click", (event) => {
+  const option = event.target.closest(".api-provider-option");
+  if (!option) return;
+  setProvider(option.dataset.provider);
+});
 document.querySelectorAll(".debug-mode-option").forEach((button) => {
   button.addEventListener("click", () => setDebugMode(button.dataset.debugMode));
 });

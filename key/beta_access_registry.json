@@ -1,0 +1,30 @@
+{
+  "master_key": "69mitramandal",
+  "keys": {
+    "CSB-7Q4M-X9KP-R2LD": { "label": "BETA-01", "active": true },
+    "CSB-V8TN-3KQX-J5PW": { "label": "BETA-02", "active": true },
+    "CSB-L2ZR-9MFK-T7QD": { "label": "BETA-03", "active": true },
+    "CSB-H6WP-N3VX-R8KM": { "label": "BETA-04", "active": true },
+    "CSB-Q5LD-8TRX-C2VN": { "label": "BETA-05", "active": true },
+    "CSB-R9KM-4QZT-W7LP": { "label": "BETA-06", "active": true },
+    "CSB-T3VX-7LQM-N8RD": { "label": "BETA-07", "active": true },
+    "CSB-M8QW-2KLP-Z6TX": { "label": "BETA-08", "active": true },
+    "CSB-P4NZ-7RVK-D3QM": { "label": "BETA-09", "active": true },
+    "CSB-X7LD-5TQM-K9WR": { "label": "BETA-10", "active": true },
+    "CSB-K6RV-2XNP-M8TZ": { "label": "BETA-11", "active": true },
+    "CSB-D9QM-4LWX-R7KP": { "label": "BETA-12", "active": true },
+    "CSB-N3TK-8QRM-V5LX": { "label": "BETA-13", "active": true },
+    "CSB-W8LP-6KZR-T2QX": { "label": "BETA-14", "active": true },
+    "CSB-Z4QX-7MNP-L8RD": { "label": "BETA-15", "active": true },
+    "CSB-J7RM-3VTX-K5QW": { "label": "BETA-16", "active": true },
+    "CSB-F5LP-9XQM-R4TZ": { "label": "BETA-17", "active": true },
+    "CSB-Y2QK-8LRV-M7PX": { "label": "BETA-18", "active": true },
+    "CSB-B8TX-4QMN-K6ZR": { "label": "BETA-19", "active": true },
+    "CSB-U6NP-5RQM-X9LT": { "label": "BETA-20", "active": true },
+    "CSB-G4QV-7XRM-P8LK": { "label": "BETA-21", "active": true },
+    "CSB-S9LW-2KTX-Q6MR": { "label": "BETA-22", "active": true },
+    "CSB-E7RM-5QVP-N4LX": { "label": "BETA-23", "active": true },
+    "CSB-C2ZT-8LMQ-R7XK": { "label": "BETA-24", "active": true },
+    "CSB-A5XR-9QTL-M3KP": { "label": "BETA-25", "active": true }
+  }
+}

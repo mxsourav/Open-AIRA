@@ -54,19 +54,54 @@
                 <span class="label">API Registration</span>
 
                 <div class="api-register-card">
-                    <div class="api-register-copy">
+                    <div class="api-register-intro">
                         <h2 class="play-title">API Registration</h2>
-                        <p class="section-desc">Enter your own AI assistant API key to unlock CodeSentinel for this session. It stays only in your current browser session, is not stored on the server, and lets you test the full debug and fix workflow safely with your own access.</p>
+                        <p class="section-desc">Choose your AI provider, then enter your own API key to unlock CodeSentinel for this session and test the full debug and fix workflow safely across multiple supported AI platforms.</p>
+                    </div>
+                    <div class="api-register-copy">
+                        <div class="api-start-card">
+                            <div class="mono api-start-title">Get Started</div>
+                            <div class="api-start-divider"></div>
+                            <ol class="api-start-steps">
+                                <li>Choose API Provider</li>
+                                <li>Enter Your API Key</li>
+                                <li>Start Debugging/Fixing</li>
+                            </ol>
+                            <div class="api-start-warning">
+                                <span>Enter your Beta Access Key first. This private beta unlocks API setup only for invited testers and safely keeps the release from spreading too early online today.</span>
+                            </div>
+                            <div class="api-start-help">
+                                Run <code>/help</code> in Input Code for a quick guide.
+                            </div>
+                            <div class="api-start-links" id="apiAccessLinks"></div>
+                        </div>
                     </div>
 
-                    <div class="api-register-form">
-                        <input id="apiKeyInput" class="api-key-input" type="password" placeholder="Paste your AI assistant API key here" />
-                        <div class="btn-row api-register-actions">
-                            <button class="btn-system" id="apiSubmitBtn" onclick="submitApiKey()">Submit API Key</button>
-                            <button class="api-remove-btn" id="apiRemoveBtn" onclick="removeApiKey()">Remove API Key</button>
+                    <div class="api-register-side">
+                        <div class="api-register-form">
+                            <div class="mono">Provider</div>
+                            <div class="api-provider-grid" id="apiProviderGrid"></div>
+                            <input id="apiKeyInput" class="api-key-input" type="password" placeholder="Paste your Gemini API key here" />
+                            <div class="btn-row api-register-actions">
+                                <button class="btn-system" id="apiSubmitBtn" onclick="submitApiKey()">Submit API Key</button>
+                                <button class="api-remove-btn" id="apiRemoveBtn" onclick="removeApiKey()">Remove API Key</button>
+                            </div>
+                            <div class="mono api-register-status" id="apiStatusText">API key required before start.</div>
+                            <div class="api-privacy-note">Privacy note: your key stays only in this browser session and is cleared when you remove it or close the session.</div>
                         </div>
-                        <div class="mono api-register-status" id="apiStatusText">API key required before start.</div>
-                        <div class="api-privacy-note">Privacy note: your key stays only in this browser session and is cleared when you remove it or close the session.</div>
+                        <div class="api-future-card beta-access-card" id="betaAccessCard">
+                            <div class="mono">Beta Access</div>
+                            <p class="beta-access-copy">This beta build is limited to invited testers. Enter your beta access key once in this browser to unlock API registration and the rest of CodeSentinel.</p>
+                            <input id="betaAccessInput" class="beta-access-input" type="text" placeholder="Enter your beta access key" autocomplete="off" spellcheck="false" />
+                            <div class="btn-row beta-access-actions">
+                                <button class="btn-system" id="betaAccessSubmitBtn" onclick="submitBetaAccess()">Unlock Beta</button>
+                                <button class="api-remove-btn" id="betaAccessRemoveBtn" onclick="removeBetaAccess()">Remove Key</button>
+                            </div>
+                            <div class="beta-access-footer">
+                                <div class="mono beta-access-status" id="betaAccessStatus">Beta access key required before API setup.</div>
+                                <div class="mono beta-access-rank" id="betaAccessRank"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -275,7 +310,7 @@
             <footer>
                 <div class="footer-left">
                     <div class="footer-strong">
-                        mx_sourav // CodeSentinel_V_3.0 Beta
+                        mx_sourav // CodeSentinel_V_3.1 Beta
                     </div>
                     <div>
                         &copy; <span id="yearNow">2026</span>
@@ -284,8 +319,7 @@
                             SOURAV</a>.
                     </div>
                     <div class="legal">
-                        A portable AI-powered debugging trainer that promotes active learning. Nothing OS style is used
-                        as design inspiration only. No affiliation with Nothing Technology Limited.
+                        © CodeSentinel. Built to help learners debug smarter, think deeper, and grow through guided AI-assisted practice.
                     </div>
                 </div>
                 <div class="footer-right">

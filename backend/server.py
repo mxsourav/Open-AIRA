@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import json
+from pathlib import Path
 import re
 import requests
 
@@ -9,7 +10,14 @@ CORS(app)
 
 GEMINI_MODELS_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+OPENAI_MODELS_URL = "https://api.openai.com/v1/models"
+OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
+DEEPSEEK_CHAT_URL = "https://api.deepseek.com/chat/completions"
+ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
+ANTHROPIC_COUNT_URL = "https://api.anthropic.com/v1/messages/count_tokens"
 REQUEST_TIMEOUT = 30
+KEY_DIR = Path(__file__).resolve().parent.parent / "key"
+BETA_KEY_REGISTRY_PATH = KEY_DIR / "beta_access_registry.json"
 
 device_state = {
     "mode": "idle",
@@ -20,7 +28,8 @@ device_state = {
 }
 
 HELP_MESSAGE = (
-    "How to use CodeSentinel: paste broken code, press Run, use Send Thought for your guess, "
+    "How to use CodeSentinel: paste broken code, press Run or Shift + Enter in Input Code, "
+    "use Send or Shift + Enter in Thought Input, press normal Enter for a new line, "
     "use Next Hint for another clue, or switch to Fix mode for direct correction. Commands: /help, clear, clr"
 )
 DONE_MESSAGE = "Yoo Thats My Boy You Did It"
@@ -89,6 +98,74 @@ GENERATION_PATTERNS = [
     r"\bcan\s+you\s+(write|create|make|build|generate)\b"
 ]
 
+PROVIDERS = {
+    "gemini": {
+        "label": "Gemini",
+        "kind": "gemini",
+        "model": "gemini-2.5-flash",
+    },
+    "openai": {
+        "label": "OpenAI",
+        "kind": "openai_compatible",
+        "base_url": OPENAI_CHAT_URL,
+        "validate_url": OPENAI_MODELS_URL,
+        "model": "gpt-4.1-mini",
+    },
+    "xai": {
+        "label": "Grok",
+        "kind": "openai_compatible",
+        "base_url": "https://api.x.ai/v1/chat/completions",
+        "validate_url": "https://api.x.ai/v1/models",
+        "model": "grok-3",
+    },
+    "deepseek": {
+        "label": "DeepSeek",
+        "kind": "openai_compatible",
+        "base_url": DEEPSEEK_CHAT_URL,
+        "validate_url": None,
+        "model": "deepseek-chat",
+    },
+    "claude": {
+        "label": "Claude",
+        "kind": "anthropic",
+        "model": "claude-sonnet-4-5",
+    },
+}
+
+
+def load_beta_registry():
+    fallback = {"master_key": "69mitramandal", "keys": {}}
+
+    try:
+        raw = json.loads(BETA_KEY_REGISTRY_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return fallback
+
+    keys = raw.get("keys", {}) if isinstance(raw, dict) else {}
+    normalized_keys = {}
+
+    if isinstance(keys, dict):
+        for key_value, meta in keys.items():
+            if not isinstance(key_value, str):
+                continue
+
+            normalized_value = key_value.strip()
+            if not normalized_value:
+                continue
+
+            details = meta if isinstance(meta, dict) else {}
+            normalized_keys[normalized_value] = {
+                "label": str(details.get("label", "BETA")).strip() or "BETA",
+                "active": bool(details.get("active", True)),
+            }
+
+    master_key = str(raw.get("master_key", fallback["master_key"])).strip() if isinstance(raw, dict) else fallback["master_key"]
+
+    return {
+        "master_key": master_key or fallback["master_key"],
+        "keys": normalized_keys,
+    }
+
 
 def normalize_command(text):
     stripped = (text or "").strip().lower()
@@ -100,16 +177,71 @@ def normalize_debug_mode(value):
     return raw if raw in DEBUG_MODES else "beginner"
 
 
+def normalize_provider(value):
+    raw = str(value or "").strip().lower()
+    return raw if raw in PROVIDERS else "gemini"
+
+
+def get_provider_details(provider):
+    return PROVIDERS[normalize_provider(provider)]
+
+
+def get_provider_label(provider):
+    return get_provider_details(provider)["label"]
+
+
 def get_mode_instruction(debug_mode, stage):
     selected_mode = normalize_debug_mode(debug_mode)
     return DEBUG_MODES[selected_mode][stage]
 
 
-def get_api_key(data):
+def validate_beta_access_key_value(access_key):
+    candidate = str(access_key or "").strip()
+    if not candidate:
+        raise ValueError("Beta access key required before API registration.")
+
+    registry = load_beta_registry()
+
+    if candidate == registry["master_key"]:
+        return {
+            "key": candidate,
+            "label": "MASTER",
+            "master": True,
+            "tester_number": None,
+            "active": True,
+        }
+
+    details = registry["keys"].get(candidate)
+    if not details:
+        raise ValueError("Invalid beta access key. Ask the owner for a valid invite key.")
+
+    if not details.get("active", True):
+        raise ValueError("This beta access key has been terminated. Ask the owner for a new one.")
+
+    return {
+        "key": candidate,
+        "label": details.get("label", "BETA"),
+        "master": False,
+        "tester_number": extract_beta_tester_number(details.get("label", "BETA")),
+        "active": True,
+    }
+
+
+def extract_beta_tester_number(label):
+    match = re.search(r"(\d+)$", str(label or "").strip())
+    return match.group(1) if match else None
+
+
+def require_beta_access(data):
+    return validate_beta_access_key_value((data or {}).get("beta_access_key"))
+
+
+def get_api_context(data):
     api_key = str((data or {}).get("api_key", "")).strip()
     if not api_key:
         raise ValueError("API key is required. Enter your own key to unlock CodeSentinel.")
-    return api_key
+    provider = normalize_provider((data or {}).get("provider"))
+    return api_key, provider
 
 
 def normalize_debug_state(raw_state):
@@ -125,7 +257,8 @@ def normalize_debug_state(raw_state):
         "hint_step": max(0, hint_step),
         "bug_found": bool(state.get("bug_found", False)),
         "last_thought": str(state.get("last_thought", "")).strip(),
-        "debug_mode": normalize_debug_mode(state.get("debug_mode"))
+        "debug_mode": normalize_debug_mode(state.get("debug_mode")),
+        "provider": normalize_provider(state.get("provider"))
     }
 
 
@@ -166,18 +299,167 @@ def parse_api_error(response):
     except ValueError:
         result = {}
 
-    return result.get("error", {}).get("message", "Gemini API request failed")
+    error = result.get("error", {})
+
+    if isinstance(error, dict):
+        message = error.get("message")
+        if message:
+            return message
+
+    if isinstance(error, str) and error.strip():
+        return error
+
+    message = result.get("message")
+    if isinstance(message, str) and message.strip():
+        return message
+
+    details = result.get("details")
+    if isinstance(details, str) and details.strip():
+        return details
+
+    return "Provider API request failed"
 
 
-def validate_api_key_value(api_key):
-    response = requests.get(
-        GEMINI_MODELS_URL,
-        headers={"x-goog-api-key": api_key},
+def validate_openai_compatible_key(api_key, provider):
+    provider_details = get_provider_details(provider)
+    validate_url = provider_details.get("validate_url")
+    headers = {"Authorization": f"Bearer {api_key}"}
+
+    if validate_url:
+        response = requests.get(validate_url, headers=headers, timeout=REQUEST_TIMEOUT)
+    else:
+        response = requests.post(
+            provider_details["base_url"],
+            headers={**headers, "Content-Type": "application/json"},
+            json={
+                "model": provider_details["model"],
+                "messages": [{"role": "user", "content": "ping"}],
+                "max_tokens": 1,
+            },
+            timeout=REQUEST_TIMEOUT
+        )
+
+    if response.status_code != 200:
+        raise RuntimeError(parse_api_error(response))
+
+
+def validate_anthropic_key(api_key, provider):
+    response = requests.post(
+        ANTHROPIC_COUNT_URL,
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": get_provider_details(provider)["model"],
+            "messages": [{"role": "user", "content": "ping"}],
+        },
+        timeout=REQUEST_TIMEOUT
+    )
+
+    if response.status_code == 200:
+        return
+
+    fallback = requests.post(
+        ANTHROPIC_MESSAGES_URL,
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": get_provider_details(provider)["model"],
+            "max_tokens": 1,
+            "messages": [{"role": "user", "content": "ping"}],
+        },
+        timeout=REQUEST_TIMEOUT
+    )
+
+    if fallback.status_code != 200:
+        raise RuntimeError(parse_api_error(fallback))
+
+
+def validate_api_key_value(api_key, provider):
+    provider_details = get_provider_details(provider)
+
+    if provider_details["kind"] == "gemini":
+        response = requests.get(
+            GEMINI_MODELS_URL,
+            headers={"x-goog-api-key": api_key},
+            timeout=REQUEST_TIMEOUT
+        )
+
+        if response.status_code != 200:
+            raise RuntimeError(parse_api_error(response))
+        return
+
+    if provider_details["kind"] == "anthropic":
+        validate_anthropic_key(api_key, provider)
+        return
+
+    validate_openai_compatible_key(api_key, provider)
+
+
+def request_openai_compatible(api_key, prompt, provider):
+    provider_details = get_provider_details(provider)
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": provider_details["model"],
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.2,
+    }
+
+    response = requests.post(
+        provider_details["base_url"],
+        headers=headers,
+        json=payload,
         timeout=REQUEST_TIMEOUT
     )
 
     if response.status_code != 200:
         raise RuntimeError(parse_api_error(response))
+
+    try:
+        result = response.json()
+        return result["choices"][0]["message"]["content"].strip()
+    except (KeyError, IndexError, TypeError, ValueError):
+        raise RuntimeError(f"{provider_details['label']} returned an unexpected response")
+
+
+def request_anthropic(api_key, prompt, provider):
+    response = requests.post(
+        ANTHROPIC_MESSAGES_URL,
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": get_provider_details(provider)["model"],
+            "max_tokens": 1800,
+            "temperature": 0.2,
+            "messages": [{"role": "user", "content": prompt}],
+        },
+        timeout=REQUEST_TIMEOUT
+    )
+
+    if response.status_code != 200:
+        raise RuntimeError(parse_api_error(response))
+
+    try:
+        result = response.json()
+        blocks = result.get("content", [])
+        texts = [block.get("text", "").strip() for block in blocks if block.get("type") == "text"]
+        content = "\n".join([text for text in texts if text]).strip()
+        if not content:
+            raise RuntimeError("empty")
+        return content
+    except (AttributeError, TypeError, ValueError, RuntimeError):
+        raise RuntimeError("Claude returned an unexpected response")
 
 
 def call_gemini(api_key, prompt, response_mime_type=None):
@@ -207,6 +489,18 @@ def call_gemini(api_key, prompt, response_mime_type=None):
         return result["candidates"][0]["content"]["parts"][0]["text"].strip()
     except (KeyError, IndexError, TypeError, ValueError):
         raise RuntimeError("Gemini returned an unexpected response")
+
+
+def call_model(api_key, prompt, provider, response_mime_type=None):
+    provider_details = get_provider_details(provider)
+
+    if provider_details["kind"] == "gemini":
+        return call_gemini(api_key, prompt, response_mime_type=response_mime_type)
+
+    if provider_details["kind"] == "anthropic":
+        return request_anthropic(api_key, prompt, provider)
+
+    return request_openai_compatible(api_key, prompt, provider)
 
 
 def parse_json_response(raw_text):
@@ -275,7 +569,7 @@ def parse_change_log_text(raw_text):
     return bullets[:6]
 
 
-def build_fix_result(api_key, code):
+def build_fix_result(api_key, code, provider):
     code_prompt = f"""
 You are CodeSentinel, a coding assistant.
 
@@ -291,7 +585,7 @@ Rules:
 - Markdown fences are allowed if needed.
 """
 
-    fixed_code = extract_fixed_code_text(call_gemini(api_key, code_prompt))
+    fixed_code = extract_fixed_code_text(call_model(api_key, code_prompt, provider))
 
     if not fixed_code:
         raise RuntimeError("Fix result did not include corrected code")
@@ -313,7 +607,7 @@ Rules:
 - Keep each line short.
 """
 
-    change_log = parse_change_log_text(call_gemini(api_key, change_prompt))
+    change_log = parse_change_log_text(call_model(api_key, change_prompt, provider))
 
     return {
         "fixed_code": fixed_code,
@@ -321,7 +615,7 @@ Rules:
     }
 
 
-def check_code_health(api_key, code):
+def check_code_health(api_key, code, provider):
     prompt = f"""
 You are checking whether code already looks correct.
 
@@ -341,7 +635,7 @@ Rules:
 - Do not include markdown fences.
 """
 
-    data = parse_json_response(call_gemini(api_key, prompt, response_mime_type="application/json"))
+    data = parse_json_response(call_model(api_key, prompt, provider, response_mime_type="application/json"))
     has_bug = bool(data.get("has_bug"))
     reply = str(data.get("reply", "")).strip()
 
@@ -356,7 +650,7 @@ Rules:
     }
 
 
-def evaluate_thought(api_key, code, thought, debug_mode):
+def evaluate_thought(api_key, code, thought, debug_mode, provider):
     prompt = f"""
 You are evaluating a student's debugging thought.
 
@@ -388,7 +682,7 @@ Rules:
 - Do not include markdown fences.
 """
 
-    data = parse_json_response(call_gemini(api_key, prompt, response_mime_type="application/json"))
+    data = parse_json_response(call_model(api_key, prompt, provider, response_mime_type="application/json"))
     thought_state = str(data.get("thought_state", "wrong")).strip().lower()
     if thought_state not in {"correct_bug", "wrong"}:
         thought_state = "correct_bug" if bool(data.get("bug_found")) else "wrong"
@@ -401,7 +695,7 @@ Rules:
     }
 
 
-def coach_after_bug_found(api_key, code, thought, debug_mode):
+def coach_after_bug_found(api_key, code, thought, debug_mode, provider):
     prompt = f"""
 You are CodeSentinel, a friendly debugging coach.
 
@@ -431,7 +725,7 @@ Rules:
 - Do not include markdown fences.
 """
 
-    data = parse_json_response(call_gemini(api_key, prompt, response_mime_type="application/json"))
+    data = parse_json_response(call_model(api_key, prompt, provider, response_mime_type="application/json"))
     thought_state = str(data.get("thought_state", "wrong_fix")).strip().lower()
     if thought_state not in {"close_fix", "wrong_fix"}:
         thought_state = "close_fix"
@@ -448,7 +742,42 @@ def api_key_status():
     return jsonify({
         "configured": False,
         "storage": "browser_session",
-        "message": "API keys are stored only in the user's browser session."
+        "message": "API keys are stored only in the user's browser session.",
+        "beta_access_required": True,
+        "providers": [
+            {"id": provider_id, "label": details["label"]}
+            for provider_id, details in PROVIDERS.items()
+        ]
+    })
+
+
+@app.route("/beta-access", methods=["POST"])
+def validate_beta_access():
+    data = request.get_json() or {}
+
+    try:
+        access = require_beta_access(data)
+        if access["master"]:
+            message = "Master beta access granted for this browser."
+        else:
+            message = f"Beta access verified for {access['label']} in this browser."
+
+        return jsonify({
+            "success": True,
+            "label": access["label"],
+            "master": access["master"],
+            "tester_number": access["tester_number"],
+            "message": message
+        })
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 403
+
+
+@app.route("/beta-access", methods=["DELETE"])
+def clear_beta_access():
+    return jsonify({
+        "success": True,
+        "message": "Beta access key removed from this browser."
     })
 
 
@@ -457,11 +786,14 @@ def validate_api_key():
     data = request.get_json() or {}
 
     try:
-        api_key = get_api_key(data)
-        validate_api_key_value(api_key)
+        require_beta_access(data)
+        api_key, provider = get_api_context(data)
+        validate_api_key_value(api_key, provider)
         return jsonify({
             "success": True,
-            "message": "API key verified for this browser session. It is not stored on the server."
+            "provider": provider,
+            "provider_label": get_provider_label(provider),
+            "message": f"{get_provider_label(provider)} API key verified for this browser session. It is not stored on the server."
         })
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
@@ -483,6 +815,7 @@ def debug_code():
     code = str(data.get("code", "")).strip()
     mode = str(data.get("mode", "debug")).strip().lower()
     debug_mode = normalize_debug_mode(data.get("debug_mode"))
+    provider = normalize_provider(data.get("provider"))
 
     if not code:
         return jsonify({"error": "No code provided"}), 400
@@ -493,6 +826,11 @@ def debug_code():
 
     if command == "help":
         return jsonify({"command": "help", "message": HELP_MESSAGE})
+
+    try:
+        require_beta_access(data)
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 403
 
     if looks_like_code_generation_request(code):
         return jsonify({
@@ -505,13 +843,13 @@ def debug_code():
         }), 400
 
     try:
-        api_key = get_api_key(data)
+        api_key, provider = get_api_context(data)
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
 
     if mode == "debug":
         try:
-            health = check_code_health(api_key, code)
+            health = check_code_health(api_key, code, provider)
             if not health["has_bug"]:
                 return jsonify({
                     "debug_state": None,
@@ -523,7 +861,7 @@ def debug_code():
 
     if mode == "fix":
         try:
-            fix_result = build_fix_result(api_key, code)
+            fix_result = build_fix_result(api_key, code, provider)
             return jsonify({
                 "mode": "fix",
                 "fixed_code": fix_result["fixed_code"],
@@ -554,9 +892,10 @@ Keep it short.
                 "hint_step": 0,
                 "bug_found": False,
                 "last_thought": "",
-                "debug_mode": debug_mode
+                "debug_mode": debug_mode,
+                "provider": provider
             },
-            "message": call_gemini(api_key, prompt)
+            "message": call_model(api_key, prompt, provider)
         })
     except Exception as error:
         return jsonify({"error": str(error)}), 500
@@ -568,6 +907,7 @@ def submit_thought():
     thought = str(data.get("thought", "")).strip()
     state = normalize_debug_state(data.get("debug_state"))
     state["debug_mode"] = normalize_debug_mode(data.get("debug_mode") or state.get("debug_mode"))
+    provider = normalize_provider(data.get("provider") or (data.get("debug_state") or {}).get("provider"))
 
     if not state["code"]:
         return jsonify({"error": "Session not found. Run the code again."}), 400
@@ -576,7 +916,8 @@ def submit_thought():
         return jsonify({"error": "Write what you think first."}), 400
 
     try:
-        api_key = get_api_key(data)
+        require_beta_access(data)
+        api_key, provider = get_api_context({**data, "provider": provider})
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
 
@@ -584,7 +925,7 @@ def submit_thought():
 
     try:
         if state["bug_found"]:
-            follow_up = coach_after_bug_found(api_key, state["code"], thought, state["debug_mode"])
+            follow_up = coach_after_bug_found(api_key, state["code"], thought, state["debug_mode"], provider)
 
             if follow_up["fixed_code_provided"]:
                 return jsonify({
@@ -598,10 +939,10 @@ def submit_thought():
                 "message": follow_up["reply"],
                 "bug_found": True,
                 "thought_state": follow_up["thought_state"],
-                "debug_state": state
+                "debug_state": {**state, "provider": provider}
             })
 
-        evaluation = evaluate_thought(api_key, state["code"], thought, state["debug_mode"])
+        evaluation = evaluate_thought(api_key, state["code"], thought, state["debug_mode"], provider)
 
         if evaluation["fixed_code_provided"]:
             return jsonify({
@@ -617,7 +958,7 @@ def submit_thought():
                 "message": FOUND_MESSAGE,
                 "bug_found": True,
                 "thought_state": "correct_bug",
-                "debug_state": state
+                "debug_state": {**state, "provider": provider}
             })
 
         wrong_reply = evaluation["reply"] or "Wrong catch. That is not the real issue. Look again near the actual error area."
@@ -625,7 +966,7 @@ def submit_thought():
             "message": wrong_reply,
             "bug_found": False,
             "thought_state": "wrong",
-            "debug_state": state
+            "debug_state": {**state, "provider": provider}
         })
     except Exception:
         prompt = f"""
@@ -648,10 +989,10 @@ In 1 or 2 short sentences, say whether they should keep checking that area or lo
 
         try:
             return jsonify({
-                "message": call_gemini(api_key, prompt),
+                "message": call_model(api_key, prompt, provider),
                 "bug_found": False,
                 "thought_state": "wrong",
-                "debug_state": state
+                "debug_state": {**state, "provider": provider}
             })
         except Exception as error:
             return jsonify({"error": str(error)}), 500
@@ -662,12 +1003,14 @@ def next_hint():
     data = request.get_json() or {}
     state = normalize_debug_state(data.get("debug_state"))
     state["debug_mode"] = normalize_debug_mode(data.get("debug_mode") or state.get("debug_mode"))
+    provider = normalize_provider(data.get("provider") or (data.get("debug_state") or {}).get("provider"))
 
     if not state["code"]:
         return jsonify({"error": "Session not found. Run the code again."}), 400
 
     try:
-        api_key = get_api_key(data)
+        require_beta_access(data)
+        api_key, provider = get_api_context({**data, "provider": provider})
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
 
@@ -700,9 +1043,9 @@ Rules:
 
     try:
         return jsonify({
-            "message": call_gemini(api_key, prompt),
+            "message": call_model(api_key, prompt, provider),
             "hint_step": state["hint_step"],
-            "debug_state": state
+            "debug_state": {**state, "provider": provider}
         })
     except Exception as error:
         return jsonify({"error": str(error)}), 500
@@ -710,6 +1053,13 @@ Rules:
 
 @app.route("/done", methods=["POST"])
 def mark_done():
+    data = request.get_json() or {}
+
+    try:
+        require_beta_access(data)
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+
     return jsonify({"message": DONE_MESSAGE})
 
 
