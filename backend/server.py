@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import re
@@ -157,6 +158,8 @@ def load_beta_registry():
             normalized_keys[normalized_value] = {
                 "label": str(details.get("label", "BETA")).strip() or "BETA",
                 "active": bool(details.get("active", True)),
+                "assigned_client_id": str(details.get("assigned_client_id", "")).strip(),
+                "claimed_at": str(details.get("claimed_at", "")).strip(),
             }
 
     master_key = str(raw.get("master_key", fallback["master_key"])).strip() if isinstance(raw, dict) else fallback["master_key"]
@@ -165,6 +168,43 @@ def load_beta_registry():
         "master_key": master_key or fallback["master_key"],
         "keys": normalized_keys,
     }
+
+
+def save_beta_registry(registry):
+    keys = {}
+
+    for key_value, meta in (registry or {}).get("keys", {}).items():
+        if not isinstance(key_value, str):
+            continue
+
+        normalized_value = key_value.strip()
+        if not normalized_value:
+            continue
+
+        details = meta if isinstance(meta, dict) else {}
+        item = {
+            "label": str(details.get("label", "BETA")).strip() or "BETA",
+            "active": bool(details.get("active", True)),
+        }
+
+        assigned_client_id = str(details.get("assigned_client_id", "")).strip()
+        claimed_at = str(details.get("claimed_at", "")).strip()
+
+        if assigned_client_id:
+            item["assigned_client_id"] = assigned_client_id
+
+        if claimed_at:
+            item["claimed_at"] = claimed_at
+
+        keys[normalized_value] = item
+
+    payload = {
+        "master_key": str((registry or {}).get("master_key", "69mitramandal")).strip() or "69mitramandal",
+        "keys": keys,
+    }
+
+    KEY_DIR.mkdir(parents=True, exist_ok=True)
+    BETA_KEY_REGISTRY_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
 def normalize_command(text):
@@ -195,7 +235,11 @@ def get_mode_instruction(debug_mode, stage):
     return DEBUG_MODES[selected_mode][stage]
 
 
-def validate_beta_access_key_value(access_key):
+def get_beta_client_id(data):
+    return str((data or {}).get("beta_client_id", "")).strip()
+
+
+def validate_beta_access_key_value(access_key, beta_client_id=""):
     candidate = str(access_key or "").strip()
     if not candidate:
         raise ValueError("Beta access key required before API registration.")
@@ -218,11 +262,25 @@ def validate_beta_access_key_value(access_key):
     if not details.get("active", True):
         raise ValueError("This beta access key has been terminated. Ask the owner for a new one.")
 
+    client_id = str(beta_client_id or "").strip()
+    if not client_id:
+        raise ValueError("Beta browser identity missing. Refresh and enter your beta key again.")
+
+    assigned_client_id = str(details.get("assigned_client_id", "")).strip()
+    if assigned_client_id and assigned_client_id != client_id:
+        raise ValueError("This beta access key is already locked to another browser/device.")
+
+    if not assigned_client_id:
+        registry["keys"][candidate]["assigned_client_id"] = client_id
+        registry["keys"][candidate]["claimed_at"] = datetime.now(timezone.utc).isoformat()
+        save_beta_registry(registry)
+
     return {
         "key": candidate,
         "label": details.get("label", "BETA"),
         "master": False,
         "tester_number": extract_beta_tester_number(details.get("label", "BETA")),
+        "assigned_client_id": client_id,
         "active": True,
     }
 
@@ -233,7 +291,7 @@ def extract_beta_tester_number(label):
 
 
 def require_beta_access(data):
-    return validate_beta_access_key_value((data or {}).get("beta_access_key"))
+    return validate_beta_access_key_value((data or {}).get("beta_access_key"), get_beta_client_id(data))
 
 
 def get_api_context(data):

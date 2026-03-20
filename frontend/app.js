@@ -212,6 +212,7 @@ const FIX_THOUGHT_INPUT_MAX_LINES = 12;
 const APP_CONFIG = window.CODESENTINEL_CONFIG || {};
 const API_BASE_URL = String(APP_CONFIG.API_BASE_URL || "http://127.0.0.1:5000").replace(/\/+$/, "");
 const BETA_ACCESS_STORAGE_KEY = "codesentinel_beta_access_key";
+const BETA_CLIENT_ID_STORAGE_KEY = "codesentinel_beta_client_id";
 const API_KEY_STORAGE_KEY = "codesentinel_user_api_key";
 const API_PROVIDER_STORAGE_KEY = "codesentinel_api_provider";
 const RELEASE_TIMESTAMP = "2026-03-21T02:32:51+05:30";
@@ -532,12 +533,40 @@ function getStoredBetaAccessKey() {
   return localStorage.getItem(BETA_ACCESS_STORAGE_KEY) || "";
 }
 
+function getStoredBetaClientId() {
+  return localStorage.getItem(BETA_CLIENT_ID_STORAGE_KEY) || "";
+}
+
+function buildBetaClientId() {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") {
+    return `cs-beta-${window.crypto.randomUUID()}`;
+  }
+
+  return `cs-beta-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function getOrCreateBetaClientId() {
+  const current = getStoredBetaClientId();
+  if (current) return current;
+
+  const next = buildBetaClientId();
+  localStorage.setItem(BETA_CLIENT_ID_STORAGE_KEY, next);
+  return next;
+}
+
 function storeBetaAccessKey(value) {
   localStorage.setItem(BETA_ACCESS_STORAGE_KEY, value);
 }
 
 function clearStoredBetaAccessKey() {
   localStorage.removeItem(BETA_ACCESS_STORAGE_KEY);
+}
+
+function getBetaAccessAuth() {
+  return {
+    beta_access_key: getStoredBetaAccessKey(),
+    beta_client_id: getOrCreateBetaClientId(),
+  };
 }
 
 function getStoredApiKey() {
@@ -875,6 +904,7 @@ function syncApiStatus() {
 
 async function syncBetaAccess() {
   const storedKey = getStoredBetaAccessKey();
+  const betaClientId = getOrCreateBetaClientId();
 
   if (!storedKey) {
     setBetaGate(false, "⚠ Enter your beta access key to unlock this beta build.");
@@ -885,7 +915,7 @@ async function syncBetaAccess() {
     const res = await fetch(buildApiUrl("/beta-access"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ beta_access_key: storedKey })
+      body: JSON.stringify({ beta_access_key: storedKey, beta_client_id: betaClientId })
     });
     const data = await res.json();
 
@@ -907,6 +937,7 @@ async function syncBetaAccess() {
 async function submitBetaAccess() {
   const input = document.getElementById("betaAccessInput");
   const betaKey = input.value.trim();
+  const betaClientId = getOrCreateBetaClientId();
 
   if (!betaKey) {
     setBetaGate(false, "Enter your beta access key first.");
@@ -917,7 +948,7 @@ async function submitBetaAccess() {
     const res = await fetch(buildApiUrl("/beta-access"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ beta_access_key: betaKey })
+      body: JSON.stringify({ beta_access_key: betaKey, beta_client_id: betaClientId })
     });
     const data = await res.json();
 
@@ -958,12 +989,13 @@ async function submitApiKey() {
   }
 
   const betaAccessKey = getStoredBetaAccessKey();
+  const betaAccessAuth = getBetaAccessAuth();
 
   try {
     const res = await fetch(buildApiUrl("/api-key"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ api_key: key, provider: apiProvider, beta_access_key: betaAccessKey })
+      body: JSON.stringify({ api_key: key, provider: apiProvider, ...betaAccessAuth })
     });
     const data = await res.json();
 
@@ -1466,6 +1498,7 @@ async function sendCode() {
   const code = document.getElementById("codeInput").value.trim();
   const apiKey = getStoredApiKey();
   const betaAccessKey = getStoredBetaAccessKey();
+  const betaAccessAuth = getBetaAccessAuth();
 
   if (handleLocalCommand(code)) return;
 
@@ -1505,7 +1538,7 @@ async function sendCode() {
     const res = await fetch(buildApiUrl("/debug"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, mode, debug_mode: debugMode, provider: apiProvider, api_key: apiKey, beta_access_key: betaAccessKey })
+      body: JSON.stringify({ code, mode, debug_mode: debugMode, provider: apiProvider, api_key: apiKey, ...betaAccessAuth })
     });
 
     const data = await res.json();
@@ -1593,6 +1626,7 @@ async function submitThought() {
   const thought = document.getElementById("thoughtInput").value.trim();
   const apiKey = getStoredApiKey();
   const betaAccessKey = getStoredBetaAccessKey();
+  const betaAccessAuth = getBetaAccessAuth();
 
   if (!betaAccessReady || !betaAccessKey) {
     appendChat("Enter your beta access key first, then continue.", { lineClass: "chat-wrong-reply" });
@@ -1627,7 +1661,7 @@ async function submitThought() {
     const res = await fetch(buildApiUrl("/submit-thought"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ debug_state: debugState, thought, debug_mode: debugMode, provider: apiProvider, api_key: apiKey, beta_access_key: betaAccessKey })
+      body: JSON.stringify({ debug_state: debugState, thought, debug_mode: debugMode, provider: apiProvider, api_key: apiKey, ...betaAccessAuth })
     });
 
     const data = await res.json();
@@ -1681,6 +1715,7 @@ async function submitThought() {
 async function nextHint() {
   const apiKey = getStoredApiKey();
   const betaAccessKey = getStoredBetaAccessKey();
+  const betaAccessAuth = getBetaAccessAuth();
 
   if (!betaAccessReady || !betaAccessKey) {
     appendChat("Enter your beta access key first, then continue.", { lineClass: "chat-wrong-reply" });
@@ -1707,7 +1742,7 @@ async function nextHint() {
     const res = await fetch(buildApiUrl("/hint"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ debug_state: debugState, debug_mode: debugMode, provider: apiProvider, api_key: apiKey, beta_access_key: betaAccessKey })
+      body: JSON.stringify({ debug_state: debugState, debug_mode: debugMode, provider: apiProvider, api_key: apiKey, ...betaAccessAuth })
     });
 
     const data = await res.json();
@@ -1753,6 +1788,7 @@ async function nextHint() {
 async function markDone() {
   const apiKey = getStoredApiKey();
   const betaAccessKey = getStoredBetaAccessKey();
+  const betaAccessAuth = getBetaAccessAuth();
 
   if (!betaAccessReady || !betaAccessKey) {
     appendChat("Enter your beta access key first, then continue.", { lineClass: "chat-wrong-reply" });
@@ -1777,7 +1813,7 @@ async function markDone() {
     const res = await fetch(buildApiUrl("/done"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ debug_state: debugState, debug_mode: debugMode, provider: apiProvider, api_key: apiKey, beta_access_key: betaAccessKey })
+      body: JSON.stringify({ debug_state: debugState, debug_mode: debugMode, provider: apiProvider, api_key: apiKey, ...betaAccessAuth })
     });
 
     const data = await res.json();
