@@ -212,7 +212,9 @@ const FIX_THOUGHT_INPUT_MAX_LINES = 12;
 const APP_CONFIG = window.CODESENTINEL_CONFIG || {};
 const API_BASE_URL = String(APP_CONFIG.API_BASE_URL || "http://127.0.0.1:5000").replace(/\/+$/, "");
 const BETA_ACCESS_STORAGE_KEY = "codesentinel_beta_access_key";
-const BETA_CLIENT_ID_STORAGE_KEY = "codesentinel_beta_client_id";
+const BETA_DEVICE_ID_STORAGE_KEY = "codesentinel_beta_device_id";
+const BETA_DEVICE_LABEL_STORAGE_KEY = "codesentinel_beta_device_label";
+const BETA_SESSION_TOKEN_STORAGE_KEY = "codesentinel_beta_session_token";
 const API_KEY_STORAGE_KEY = "codesentinel_user_api_key";
 const API_PROVIDER_STORAGE_KEY = "codesentinel_api_provider";
 const RELEASE_TIMESTAMP = "2026-03-21T02:32:51+05:30";
@@ -533,25 +535,57 @@ function getStoredBetaAccessKey() {
   return localStorage.getItem(BETA_ACCESS_STORAGE_KEY) || "";
 }
 
-function getStoredBetaClientId() {
-  return localStorage.getItem(BETA_CLIENT_ID_STORAGE_KEY) || "";
+function getStoredBetaSessionToken() {
+  return localStorage.getItem(BETA_SESSION_TOKEN_STORAGE_KEY) || "";
 }
 
-function buildBetaClientId() {
-  if (window.crypto && typeof window.crypto.randomUUID === "function") {
-    return `cs-beta-${window.crypto.randomUUID()}`;
+function storeBetaSessionToken(value) {
+  if (value) {
+    localStorage.setItem(BETA_SESSION_TOKEN_STORAGE_KEY, value);
+  }
+}
+
+function clearStoredBetaSessionToken() {
+  localStorage.removeItem(BETA_SESSION_TOKEN_STORAGE_KEY);
+}
+
+function deterministicHash(value) {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function buildBetaDeviceProfile() {
+  const platform = navigator.userAgentData?.platform || navigator.platform || "Unknown Device";
+  const language = navigator.language || "en";
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "No-TZ";
+  const screenInfo = `${window.screen?.width || 0}x${window.screen?.height || 0}`;
+  const colorDepth = `${window.screen?.colorDepth || 0}`;
+  const hardware = `${navigator.hardwareConcurrency || 0}`;
+  const memory = `${navigator.deviceMemory || 0}`;
+  const touch = `${navigator.maxTouchPoints || 0}`;
+  const raw = [platform, language, timeZone, screenInfo, colorDepth, hardware, memory, touch].join("|");
+
+  return {
+    id: `device-${deterministicHash(raw)}`,
+    label: `${platform} • ${screenInfo} • ${timeZone}`,
+  };
+}
+
+function getOrCreateBetaDeviceProfile() {
+  const storedId = localStorage.getItem(BETA_DEVICE_ID_STORAGE_KEY) || "";
+  const storedLabel = localStorage.getItem(BETA_DEVICE_LABEL_STORAGE_KEY) || "";
+  if (storedId && storedLabel) {
+    return { id: storedId, label: storedLabel };
   }
 
-  return `cs-beta-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
-}
-
-function getOrCreateBetaClientId() {
-  const current = getStoredBetaClientId();
-  if (current) return current;
-
-  const next = buildBetaClientId();
-  localStorage.setItem(BETA_CLIENT_ID_STORAGE_KEY, next);
-  return next;
+  const profile = buildBetaDeviceProfile();
+  localStorage.setItem(BETA_DEVICE_ID_STORAGE_KEY, profile.id);
+  localStorage.setItem(BETA_DEVICE_LABEL_STORAGE_KEY, profile.label);
+  return profile;
 }
 
 function storeBetaAccessKey(value) {
@@ -560,12 +594,16 @@ function storeBetaAccessKey(value) {
 
 function clearStoredBetaAccessKey() {
   localStorage.removeItem(BETA_ACCESS_STORAGE_KEY);
+  clearStoredBetaSessionToken();
 }
 
 function getBetaAccessAuth() {
+  const device = getOrCreateBetaDeviceProfile();
   return {
     beta_access_key: getStoredBetaAccessKey(),
-    beta_client_id: getOrCreateBetaClientId(),
+    beta_device_id: device.id,
+    beta_device_label: device.label,
+    beta_session_token: getStoredBetaSessionToken(),
   };
 }
 
@@ -916,7 +954,7 @@ function syncApiStatus() {
 
 async function syncBetaAccess() {
   const storedKey = getStoredBetaAccessKey();
-  const betaClientId = getOrCreateBetaClientId();
+  const device = getOrCreateBetaDeviceProfile();
 
   if (!storedKey) {
     setBetaGate(false, "⚠ Enter your beta access key to unlock this beta build.");
@@ -924,10 +962,15 @@ async function syncBetaAccess() {
   }
 
   try {
-    const res = await fetch(buildApiUrl("/beta-access"), {
+    const res = await fetch(buildApiUrl("/verify-key"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ beta_access_key: storedKey, beta_client_id: betaClientId })
+      body: JSON.stringify({
+        beta_access_key: storedKey,
+        beta_device_id: device.id,
+        beta_device_label: device.label,
+        beta_session_token: getStoredBetaSessionToken(),
+      })
     });
     const data = await res.json();
 
@@ -936,6 +979,7 @@ async function syncBetaAccess() {
       return;
     }
 
+    storeBetaSessionToken(data.session_token || "");
     setBetaGate(true, data.message || "Beta access key ready in this browser.", {
       label: data.label,
       testerNumber: data.tester_number,
@@ -949,7 +993,7 @@ async function syncBetaAccess() {
 async function submitBetaAccess() {
   const input = document.getElementById("betaAccessInput");
   const betaKey = input.value.trim();
-  const betaClientId = getOrCreateBetaClientId();
+  const device = getOrCreateBetaDeviceProfile();
 
   if (!betaKey) {
     setBetaGate(false, "Enter your beta access key first.");
@@ -957,10 +1001,15 @@ async function submitBetaAccess() {
   }
 
   try {
-    const res = await fetch(buildApiUrl("/beta-access"), {
+    const res = await fetch(buildApiUrl("/verify-key"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ beta_access_key: betaKey, beta_client_id: betaClientId })
+      body: JSON.stringify({
+        beta_access_key: betaKey,
+        beta_device_id: device.id,
+        beta_device_label: device.label,
+        beta_session_token: getStoredBetaSessionToken(),
+      })
     });
     const data = await res.json();
 
@@ -970,6 +1019,7 @@ async function submitBetaAccess() {
     }
 
     storeBetaAccessKey(betaKey);
+    storeBetaSessionToken(data.session_token || "");
     input.value = "";
     setBetaGate(true, data.message || "Beta access key ready in this browser.", {
       label: data.label,

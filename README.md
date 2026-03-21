@@ -27,6 +27,7 @@ The current beta architecture is:
 - Stats tracking for debug runs, thoughts, hints, wrong turns, bug reads, and best progress
 - Private beta-access gate with invite keys and a master bypass key
 - Multi-provider API support: Gemini, OpenAI, Grok, Claude, and DeepSeek
+- Separate `/admin` dashboard for live key status, key toggles, and session termination
 - API registration gate before the app unlocks
 - `/help`, `clear`, and `clr` commands
 - Dark and light theme support

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CodeSentinel Admin</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter&family=JetBrains+Mono&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="./admin.css" />
+</head>
+
+<body>
+  <div class="nt-canvas"></div>
+
+  <main class="container admin-container">
+    <section class="widget admin-shell">
+      <div class="admin-header">
+        <div>
+          <span class="label">Admin Panel</span>
+          <h1 class="play-title">CodeSentinel Key Control</h1>
+          <p class="section-desc">Monitor invite keys, terminate sessions, and toggle access in real time.</p>
+        </div>
+        <div class="admin-header-actions">
+          <span class="chip">LIVE: <b id="adminLiveState">SYNCING</b></span>
+          <button class="btn-system btn-ghost btn-mini" id="adminLogoutBtn" type="button">Logout</button>
+        </div>
+      </div>
+
+      <div class="admin-auth-card" id="adminLoginCard">
+        <div class="mono">Admin Login</div>
+        <div class="admin-form-grid">
+          <input id="adminUsername" class="admin-input" type="text" placeholder="Admin username" autocomplete="username" />
+          <input id="adminPassword" class="admin-input" type="password" placeholder="Admin password" autocomplete="current-password" />
+        </div>
+        <div class="btn-row admin-login-actions">
+          <button class="btn-system" id="adminLoginBtn" type="button">Unlock Admin</button>
+        </div>
+        <div class="mono admin-status" id="adminStatusText">Enter admin credentials to manage CodeSentinel keys.</div>
+      </div>
+
+      <div class="admin-dashboard" id="adminDashboard" hidden>
+        <div class="admin-stats-grid">
+          <div class="stat-item">
+            <span class="stat-label">Total Keys</span>
+            <span class="stat-value" id="adminTotalKeys">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Active Keys</span>
+            <span class="stat-value stat-good" id="adminActiveKeys">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Bound Sessions</span>
+            <span class="stat-value" id="adminBoundKeys">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Inactive Keys</span>
+            <span class="stat-value stat-bad" id="adminInactiveKeys">0</span>
+          </div>
+        </div>
+
+        <div class="admin-keys-head">
+          <div class="mono">Key Inventory</div>
+          <span class="mono admin-poll-note" id="adminPollNote">Polling every 5 seconds</span>
+        </div>
+
+        <div class="admin-keys-grid" id="adminKeysGrid"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="../config.js"></script>
+  <script src="./admin.js"></script>
+</body>
+
+</html>

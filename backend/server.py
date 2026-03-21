@@ -1,13 +1,29 @@
+import os
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from datetime import datetime, timezone
-import json
-from pathlib import Path
 import re
 import requests
 
+from admin_routes import admin_bp
+from key_manager import authenticate_access_key, init_key_store, verify_access_key
+
 app = Flask(__name__)
-CORS(app)
+CORS(
+    app,
+    supports_credentials=True,
+    origins=[
+        re.compile(r"https://.*\.vercel\.app"),
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+    ],
+)
+app.config["SECRET_KEY"] = os.getenv("CODESENTINEL_SESSION_SECRET", "codesentinel-dev-admin-secret")
+is_production = os.getenv("RENDER") is not None or os.getenv("CODESENTINEL_ENV", "").lower() == "production"
+app.config["SESSION_COOKIE_SAMESITE"] = "None" if is_production else "Lax"
+app.config["SESSION_COOKIE_SECURE"] = is_production
+init_key_store()
+app.register_blueprint(admin_bp)
 
 GEMINI_MODELS_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
@@ -17,8 +33,6 @@ DEEPSEEK_CHAT_URL = "https://api.deepseek.com/chat/completions"
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_COUNT_URL = "https://api.anthropic.com/v1/messages/count_tokens"
 REQUEST_TIMEOUT = 30
-KEY_DIR = Path(__file__).resolve().parent.parent / "key"
-BETA_KEY_REGISTRY_PATH = KEY_DIR / "beta_access_registry.json"
 
 device_state = {
     "mode": "idle",
@@ -132,81 +146,6 @@ PROVIDERS = {
         "model": "claude-sonnet-4-5",
     },
 }
-
-
-def load_beta_registry():
-    fallback = {"master_key": "69mitramandal", "keys": {}}
-
-    try:
-        raw = json.loads(BETA_KEY_REGISTRY_PATH.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        return fallback
-
-    keys = raw.get("keys", {}) if isinstance(raw, dict) else {}
-    normalized_keys = {}
-
-    if isinstance(keys, dict):
-        for key_value, meta in keys.items():
-            if not isinstance(key_value, str):
-                continue
-
-            normalized_value = key_value.strip()
-            if not normalized_value:
-                continue
-
-            details = meta if isinstance(meta, dict) else {}
-            normalized_keys[normalized_value] = {
-                "label": str(details.get("label", "BETA")).strip() or "BETA",
-                "active": bool(details.get("active", True)),
-                "assigned_client_id": str(details.get("assigned_client_id", "")).strip(),
-                "claimed_at": str(details.get("claimed_at", "")).strip(),
-            }
-
-    master_key = str(raw.get("master_key", fallback["master_key"])).strip() if isinstance(raw, dict) else fallback["master_key"]
-
-    return {
-        "master_key": master_key or fallback["master_key"],
-        "keys": normalized_keys,
-    }
-
-
-def save_beta_registry(registry):
-    keys = {}
-
-    for key_value, meta in (registry or {}).get("keys", {}).items():
-        if not isinstance(key_value, str):
-            continue
-
-        normalized_value = key_value.strip()
-        if not normalized_value:
-            continue
-
-        details = meta if isinstance(meta, dict) else {}
-        item = {
-            "label": str(details.get("label", "BETA")).strip() or "BETA",
-            "active": bool(details.get("active", True)),
-        }
-
-        assigned_client_id = str(details.get("assigned_client_id", "")).strip()
-        claimed_at = str(details.get("claimed_at", "")).strip()
-
-        if assigned_client_id:
-            item["assigned_client_id"] = assigned_client_id
-
-        if claimed_at:
-            item["claimed_at"] = claimed_at
-
-        keys[normalized_value] = item
-
-    payload = {
-        "master_key": str((registry or {}).get("master_key", "69mitramandal")).strip() or "69mitramandal",
-        "keys": keys,
-    }
-
-    KEY_DIR.mkdir(parents=True, exist_ok=True)
-    BETA_KEY_REGISTRY_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-
-
 def normalize_command(text):
     stripped = (text or "").strip().lower()
     return COMMAND_ALIASES.get(stripped)
@@ -233,65 +172,8 @@ def get_provider_label(provider):
 def get_mode_instruction(debug_mode, stage):
     selected_mode = normalize_debug_mode(debug_mode)
     return DEBUG_MODES[selected_mode][stage]
-
-
-def get_beta_client_id(data):
-    return str((data or {}).get("beta_client_id", "")).strip()
-
-
-def validate_beta_access_key_value(access_key, beta_client_id=""):
-    candidate = str(access_key or "").strip()
-    if not candidate:
-        raise ValueError("Beta access key required before API registration.")
-
-    registry = load_beta_registry()
-
-    if candidate == registry["master_key"]:
-        return {
-            "key": candidate,
-            "label": "MASTER",
-            "master": True,
-            "tester_number": None,
-            "active": True,
-        }
-
-    details = registry["keys"].get(candidate)
-    if not details:
-        raise ValueError("Invalid beta access key. Ask the owner for a valid invite key.")
-
-    if not details.get("active", True):
-        raise ValueError("This beta access key has been terminated. Ask the owner for a new one.")
-
-    client_id = str(beta_client_id or "").strip()
-    if not client_id:
-        raise ValueError("Sorry Bro but this Invitation key is already used. ask 100RAV for new key.")
-
-    assigned_client_id = str(details.get("assigned_client_id", "")).strip()
-    if assigned_client_id and assigned_client_id != client_id:
-        raise ValueError("Sorry Bro but this Invitation key is already used. ask 100RAV for new key.")
-
-    if not assigned_client_id:
-        registry["keys"][candidate]["assigned_client_id"] = client_id
-        registry["keys"][candidate]["claimed_at"] = datetime.now(timezone.utc).isoformat()
-        save_beta_registry(registry)
-
-    return {
-        "key": candidate,
-        "label": details.get("label", "BETA"),
-        "master": False,
-        "tester_number": extract_beta_tester_number(details.get("label", "BETA")),
-        "assigned_client_id": client_id,
-        "active": True,
-    }
-
-
-def extract_beta_tester_number(label):
-    match = re.search(r"(\d+)$", str(label or "").strip())
-    return match.group(1) if match else None
-
-
 def require_beta_access(data):
-    return validate_beta_access_key_value((data or {}).get("beta_access_key"), get_beta_client_id(data))
+    return authenticate_access_key((data or {}).get("beta_access_key"), data, request)
 
 
 def get_api_context(data):
@@ -809,23 +691,22 @@ def api_key_status():
     })
 
 
+@app.route("/verify-key", methods=["POST"])
 @app.route("/beta-access", methods=["POST"])
 def validate_beta_access():
     data = request.get_json() or {}
 
     try:
-        access = require_beta_access(data)
-        if access["master"]:
-            message = "Master beta access granted for this browser."
-        else:
-            message = f"Beta access verified for {access['label']} in this browser."
+        access = verify_access_key((data or {}).get("beta_access_key"), data, request)
+        record = access["record"]
 
         return jsonify({
             "success": True,
-            "label": access["label"],
-            "master": access["master"],
-            "tester_number": access["tester_number"],
-            "message": message
+            "label": record["label"],
+            "master": record["is_master"],
+            "tester_number": record["tester_number"],
+            "session_token": access["session_token"],
+            "message": access["message"]
         })
     except ValueError as error:
         return jsonify({"error": str(error)}), 403

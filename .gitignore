@@ -9,3 +9,4 @@ env/
 Thumbs.db
 .vercel/
 .pytest_cache/
+key/*.sqlite3
