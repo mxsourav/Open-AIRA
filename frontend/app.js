@@ -630,7 +630,7 @@ function isBetaAccessError(message) {
 
 function isUsedInviteMessage(message) {
   const text = String(message || "").toLowerCase();
-  return text.includes("invitation key is already used") && text.includes("100rav");
+  return text.includes("invitation key is already used") || text.includes("already used by another browser/device");
 }
 
 function getDefaultApiGateMessage() {
@@ -648,10 +648,12 @@ function setBetaStatusText(message) {
   const status = document.getElementById("betaAccessStatus");
   if (!status) return;
   const text = String(message || "");
+  status.classList.remove("is-used-link");
   if (isUsedInviteMessage(text)) {
     const subject = encodeURIComponent("Need a new CodeSentinel beta key");
     const body = encodeURIComponent("Hey 100RAV,\n\nThis beta invitation key is already used. Please send me a new beta access key.\n\nThanks.");
-    status.innerHTML = `Sorry Bro but this Invitation key is already used. ask <span class="beta-access-owner-inline"><a class="beta-access-owner-link" href="mailto:mx100rav@gmail.com?subject=${subject}&body=${body}">100RAV</a> for new key</span>.`;
+    status.classList.add("is-used-link");
+    status.innerHTML = `Used key. Ask <span class="beta-access-owner-inline"><a class="beta-access-owner-link" href="mailto:mx100rav@gmail.com?subject=${subject}&body=${body}">100RAV</a> for another.</span>`;
     return;
   }
   if (text.startsWith("⚠")) {

@@ -762,6 +762,12 @@ nav {
   color: var(--nothing-red);
 }
 
+.beta-access-status.is-used-link {
+  white-space: nowrap;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+
 .beta-access-rank {
   flex: 0 0 auto;
   min-width: 74px;
@@ -2118,7 +2124,11 @@ footer {
 }
 
 [data-theme="light"] .beta-access-status {
-  color: #9a6a00;
+    color: #9a6a00;
+}
+
+[data-theme="light"] .beta-access-status.is-used-link {
+    color: #b23a46;
 }
 
 [data-theme="light"] .beta-access-status-text {
