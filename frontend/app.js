@@ -699,6 +699,7 @@ function syncBetaDependentUI() {
 
   if (apiWidget) {
     apiWidget.classList.toggle("is-beta-locked", !betaAccessReady);
+    apiWidget.classList.toggle("is-awaiting-api", betaAccessReady && !apiReady);
   }
 
   if (apiForm) {
