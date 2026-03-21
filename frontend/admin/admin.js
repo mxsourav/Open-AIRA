@@ -1,5 +1,6 @@
 const ADMIN_CONFIG = window.CODESENTINEL_CONFIG || {};
 const ADMIN_API_BASE_URL = String(ADMIN_CONFIG.API_BASE_URL || "http://127.0.0.1:5000").replace(/\/+$/, "");
+const ADMIN_TOKEN_STORAGE_KEY = "codesentinel_admin_token";
 
 const ADMIN_PROVIDER_META = {
   gemini: { label: "Gemini", logo: "../assets/providers/gemini-color.svg" },
@@ -89,9 +90,14 @@ function setAdminAuthState(authenticated) {
 }
 
 function adminFetch(path, options = {}) {
+  const adminToken = localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) || "";
   return fetch(adminApiUrl(path), {
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(adminToken ? { "X-CodeSentinel-Admin": adminToken } : {}),
+      ...(options.headers || {})
+    },
     ...options,
   });
 }
@@ -284,6 +290,9 @@ async function adminLogin() {
   }
 
   setAdminAuthState(true);
+  if (data.admin_token) {
+    localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, data.admin_token);
+  }
   setAdminStatus(data.message || "Admin session unlocked.", "ready");
   await refreshAdminOverview();
   startAdminPolling();
@@ -291,6 +300,7 @@ async function adminLogin() {
 
 async function adminLogout() {
   await adminFetch("/admin/logout", { method: "POST" });
+  localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
   stopAdminPolling();
   setAdminAuthState(false);
   setAdminStatus("Admin session cleared.");
@@ -427,6 +437,7 @@ async function syncAdminSession() {
   const data = await res.json();
 
   if (!data.authenticated) {
+    localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
     setAdminAuthState(false);
     setAdminStatus("Enter admin credentials to manage CodeSentinel keys.");
     return;

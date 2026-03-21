@@ -5,6 +5,9 @@ from functools import wraps
 from flask import Blueprint, jsonify, request, session
 
 from key_manager import (
+    authenticate_admin_token,
+    clear_admin_session,
+    create_admin_session,
     get_admin_identity,
     get_admin_overview,
     init_key_store,
@@ -21,8 +24,15 @@ admin_bp = Blueprint("admin_bp", __name__)
 def admin_required(handler):
     @wraps(handler)
     def wrapped(*args, **kwargs):
-        if not session.get("codesentinel_admin"):
+        token = str(request.headers.get("X-CodeSentinel-Admin", "")).strip()
+        if session.get("codesentinel_admin"):
+            return handler(*args, **kwargs)
+        try:
+            auth = authenticate_admin_token(token)
+        except ValueError:
             return jsonify({"error": "Admin login required."}), 401
+        session["codesentinel_admin"] = True
+        session["codesentinel_admin_username"] = auth["username"]
         return handler(*args, **kwargs)
 
     return wrapped
@@ -35,10 +45,21 @@ def ensure_key_store_ready():
 
 @admin_bp.route("/admin/session", methods=["GET"])
 def admin_session_status():
+    token = str(request.headers.get("X-CodeSentinel-Admin", "")).strip()
+    token_authenticated = False
+    if token:
+        try:
+            auth = authenticate_admin_token(token)
+            session["codesentinel_admin"] = True
+            session["codesentinel_admin_username"] = auth["username"]
+            token_authenticated = True
+        except ValueError:
+            token_authenticated = False
+
     identity = get_admin_identity()
     return jsonify({
-        "authenticated": bool(session.get("codesentinel_admin")),
-        "username": identity["username"] if session.get("codesentinel_admin") else None,
+        "authenticated": bool(session.get("codesentinel_admin")) or token_authenticated,
+        "username": identity["username"] if (session.get("codesentinel_admin") or token_authenticated) else None,
     })
 
 
@@ -55,16 +76,20 @@ def admin_login():
 
     session["codesentinel_admin"] = True
     session["codesentinel_admin_username"] = identity["username"]
+    admin_token = create_admin_session(identity["username"])
 
     return jsonify({
         "success": True,
         "username": identity["username"],
+        "admin_token": admin_token,
         "message": "Admin session unlocked.",
     })
 
 
 @admin_bp.route("/admin/logout", methods=["POST"])
 def admin_logout():
+    token = str(request.headers.get("X-CodeSentinel-Admin", "")).strip()
+    clear_admin_session(token)
     session.pop("codesentinel_admin", None)
     session.pop("codesentinel_admin_username", None)
     return jsonify({"success": True, "message": "Admin session cleared."})

@@ -136,6 +136,17 @@ def get_admin_auth_row(conn):
     ).fetchone()
 
 
+def get_admin_session_row(conn, token_hash):
+    return conn.execute(
+        """
+        SELECT *
+        FROM admin_sessions
+        WHERE token_hash = ?
+        """,
+        (token_hash,),
+    ).fetchone()
+
+
 def write_registry_files(conn):
     master_row = get_master_key_row(conn)
     invite_rows = conn.execute(
@@ -212,6 +223,16 @@ def init_key_store():
                 username TEXT NOT NULL,
                 password_hash TEXT NOT NULL,
                 updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS admin_sessions (
+                token_hash TEXT PRIMARY KEY,
+                username TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                last_used_time TEXT NOT NULL
             )
             """
         )
@@ -322,6 +343,10 @@ def serialize_admin_row(row):
         "username": row["username"],
         "updated_at": row["updated_at"],
     }
+
+
+def hash_admin_token(token):
+    return hashlib.sha256(str(token or "").encode("utf-8")).hexdigest()
 
 
 def issue_session_token():
@@ -571,6 +596,66 @@ def verify_admin_login(username, password):
         raise ValueError("Invalid admin credentials.")
 
     return serialize_admin_row(row)
+
+
+def create_admin_session(username):
+    init_key_store()
+    raw_token = f"csa_{secrets.token_urlsafe(24)}"
+    token_hash = hash_admin_token(raw_token)
+    now = utc_now_iso()
+
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO admin_sessions (token_hash, username, created_at, last_used_time)
+            VALUES (?, ?, ?, ?)
+            """,
+            (token_hash, username, now, now),
+        )
+        conn.commit()
+
+    return raw_token
+
+
+def authenticate_admin_token(token):
+    raw_token = str(token or "").strip()
+    if not raw_token:
+        raise ValueError("Admin login required.")
+
+    token_hash = hash_admin_token(raw_token)
+    init_key_store()
+    with get_connection() as conn:
+        row = get_admin_session_row(conn, token_hash)
+        if not row:
+            raise ValueError("Admin login required.")
+
+        now = utc_now_iso()
+        conn.execute(
+            """
+            UPDATE admin_sessions
+            SET last_used_time = ?
+            WHERE token_hash = ?
+            """,
+            (now, token_hash),
+        )
+        conn.commit()
+
+    return {"username": row["username"], "last_used_time": now}
+
+
+def clear_admin_session(token):
+    raw_token = str(token or "").strip()
+    if not raw_token:
+        return
+
+    token_hash = hash_admin_token(raw_token)
+    init_key_store()
+    with get_connection() as conn:
+        conn.execute(
+            "DELETE FROM admin_sessions WHERE token_hash = ?",
+            (token_hash,),
+        )
+        conn.commit()
 
 
 def update_master_key(new_key):
