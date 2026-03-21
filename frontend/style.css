@@ -635,14 +635,23 @@ nav {
 }
 
 .beta-access-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  border-color: rgba(255, 200, 87, 0.22);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-color: rgba(255, 200, 87, 0.22);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 0 0 1px rgba(255, 200, 87, 0.16),
-    0 0 22px -14px rgba(255, 200, 87, 0.68);
+      0 0 0 1px rgba(255, 200, 87, 0.16),
+      0 0 22px -14px rgba(255, 200, 87, 0.68);
+}
+
+.beta-access-card:not(.is-ready) {
+    border-color: rgba(255, 200, 87, 0.44);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 0 0 1px rgba(255, 200, 87, 0.26),
+      0 0 0 2px rgba(255, 200, 87, 0.08),
+      0 0 30px -14px rgba(255, 200, 87, 0.9);
 }
 
 .beta-access-copy {
@@ -666,8 +675,15 @@ nav {
 }
 
 .beta-access-input:focus {
-  outline: none;
-  box-shadow: 0 0 0 1px var(--nothing-green);
+    outline: none;
+    box-shadow: 0 0 0 1px var(--nothing-green);
+}
+
+.beta-access-card:not(.is-ready) .beta-access-input {
+    border-color: rgba(255, 200, 87, 0.36);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.03),
+      0 0 0 1px rgba(255, 200, 87, 0.18);
 }
 
 .beta-access-input:disabled {
@@ -1039,8 +1055,23 @@ nav {
 }
 
 .api-key-input:focus {
-  outline: none;
-  box-shadow: 0 0 0 1px var(--nothing-green);
+    outline: none;
+    box-shadow: 0 0 0 1px var(--nothing-green);
+}
+
+.api-register-form.is-awaiting-api .api-key-input {
+    border-color: rgba(180, 128, 255, 0.46);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.04),
+      0 0 0 1px rgba(180, 128, 255, 0.28),
+      0 0 24px -14px rgba(180, 128, 255, 0.9);
+}
+
+.api-register-form.is-awaiting-api .api-key-input:focus {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.04),
+      0 0 0 1px rgba(196, 152, 255, 0.52),
+      0 0 28px -12px rgba(196, 152, 255, 0.95);
 }
 
 .api-register-actions {
@@ -2038,11 +2069,26 @@ footer {
 }
 
 [data-theme="light"] .beta-access-card > .mono {
-  color: #b87400;
+    color: #b87400;
+}
+
+[data-theme="light"] .beta-access-card:not(.is-ready) {
+    border-color: rgba(184, 116, 0, 0.34);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      0 0 0 1px rgba(184, 116, 0, 0.14),
+      0 0 24px -18px rgba(184, 116, 0, 0.38);
 }
 
 [data-theme="light"] .beta-access-copy {
-  color: #333;
+    color: #333;
+}
+
+[data-theme="light"] .beta-access-card:not(.is-ready) .beta-access-input {
+    border-color: rgba(184, 116, 0, 0.26);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.92),
+      0 0 0 1px rgba(184, 116, 0, 0.14);
 }
 
 [data-theme="light"] .beta-access-status {
@@ -2739,8 +2785,23 @@ footer {
 }
 
 [data-theme="light"] .api-remove-btn:hover:not(:disabled) {
-  background: rgba(192, 36, 50, 0.08);
-  border-color: rgba(192, 36, 50, 0.52);
+    background: rgba(192, 36, 50, 0.08);
+    border-color: rgba(192, 36, 50, 0.52);
+}
+
+[data-theme="light"] .api-register-form.is-awaiting-api .api-key-input {
+    border-color: rgba(143, 92, 214, 0.28);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.96),
+      0 0 0 1px rgba(143, 92, 214, 0.16),
+      0 0 22px -18px rgba(143, 92, 214, 0.42);
+}
+
+[data-theme="light"] .api-register-form.is-awaiting-api .api-key-input:focus {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.96),
+      0 0 0 1px rgba(143, 92, 214, 0.22),
+      0 0 24px -18px rgba(143, 92, 214, 0.5);
 }
 
 [data-theme="light"] .api-privacy-note {

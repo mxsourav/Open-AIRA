@@ -682,6 +682,7 @@ function syncBetaRank(meta = betaAccessMeta) {
 function syncBetaDependentUI() {
   const apiWidget = document.getElementById("api-registration");
   const widget = document.getElementById("codesentinel");
+  const apiForm = document.querySelector(".api-register-form");
   const apiInput = document.getElementById("apiKeyInput");
   const apiSubmitBtn = document.getElementById("apiSubmitBtn");
   const apiRemoveBtn = document.getElementById("apiRemoveBtn");
@@ -698,6 +699,10 @@ function syncBetaDependentUI() {
 
   if (apiWidget) {
     apiWidget.classList.toggle("is-beta-locked", !betaAccessReady);
+  }
+
+  if (apiForm) {
+    apiForm.classList.toggle("is-awaiting-api", betaAccessReady && !apiReady);
   }
 
   document.querySelectorAll(".api-provider-option").forEach((button) => {
