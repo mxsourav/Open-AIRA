@@ -724,9 +724,11 @@ nav {
 
 .beta-access-owner-link {
   color: inherit;
+  display: inline-block;
   font-weight: 800;
   text-decoration: underline;
   text-underline-offset: 2px;
+  white-space: nowrap;
 }
 
 .beta-access-owner-link:hover {

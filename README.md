@@ -254,14 +254,6 @@ Current model:
 - beta invite-key claims depend on backend storage persistence across redeploys/restarts
 - fix quality still depends on the selected provider response quality
 
-## Recommended First Trial Launch
-
-- keep the repo private
-- deploy frontend on Vercel
-- deploy backend on Render
-- test with a small user group first
-- monitor API quota usage and error handling
-
 ## Author
 
 Built by Sourav.
