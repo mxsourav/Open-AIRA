@@ -26,10 +26,11 @@
           <p class="section-desc">Monitor every beta key, edit the master key, and change admin login details live.</p>
         </div>
         <div class="admin-header-actions">
-          <span class="chip">LIVE: <b id="adminLiveState">SYNCING</b></span>
+          <span class="chip admin-live-chip">Status: <b id="adminLiveState">LOCKED</b></span>
           <button class="btn-system btn-ghost btn-mini" id="adminLogoutBtn" type="button">Logout</button>
         </div>
       </div>
+      <div class="mono admin-status admin-global-status" id="adminStatusText"></div>
 
       <div class="admin-auth-card" id="adminLoginCard">
         <form class="admin-submit-form" id="adminLoginForm">
@@ -41,7 +42,6 @@
           <div class="btn-row admin-login-actions">
             <button class="btn-system" id="adminLoginBtn" type="submit">Unlock Admin</button>
           </div>
-          <div class="mono admin-status" id="adminStatusText">Enter admin credentials to manage CodeSentinel keys.</div>
         </form>
       </div>
 
@@ -86,9 +86,14 @@
                   <div class="admin-control-value" id="adminMasterMasked">Loading...</div>
                   <div class="admin-control-sub" id="adminMasterMeta">Master key usage info will appear here.</div>
                 </div>
-                <input id="adminMasterKeyInput" class="admin-input" type="text" placeholder="Enter a new master key" autocomplete="off" />
                 <div class="btn-row admin-control-actions">
-                  <button class="btn-system" id="adminSaveMasterBtn" type="submit">Update Master Key</button>
+                  <button class="btn-system btn-ghost btn-mini admin-editor-toggle" id="toggleMasterEditorBtn" type="button">Show Master Key Editor</button>
+                </div>
+                <div class="admin-editor-panel" id="adminMasterEditor" hidden>
+                  <input id="adminMasterKeyInput" class="admin-input" type="text" placeholder="Enter a new master key" autocomplete="off" />
+                  <div class="btn-row admin-control-actions">
+                    <button class="btn-system" id="adminSaveMasterBtn" type="submit">Update Master Key</button>
+                  </div>
                 </div>
               </form>
             </section>
@@ -101,14 +106,19 @@
                   <div class="admin-control-value" id="adminCurrentUsername">Loading...</div>
                   <div class="admin-control-sub" id="adminAdminUpdatedAt">Last update info will appear here.</div>
                 </div>
-                <div class="admin-form-stack">
-                  <input id="adminNewUsername" class="admin-input" type="text" placeholder="New admin username" autocomplete="username" />
-                  <input id="adminCurrentPassword" class="admin-input" type="password" placeholder="Current admin password" autocomplete="current-password" />
-                  <input id="adminNewPassword" class="admin-input" type="password" placeholder="New admin password" autocomplete="new-password" />
-                  <input id="adminConfirmPassword" class="admin-input" type="password" placeholder="Confirm new admin password" autocomplete="new-password" />
-                </div>
                 <div class="btn-row admin-control-actions">
-                  <button class="btn-system" id="adminSaveCredentialsBtn" type="submit">Update Admin Login</button>
+                  <button class="btn-system btn-ghost btn-mini admin-editor-toggle" id="toggleCredentialsEditorBtn" type="button">Show Admin Login Editor</button>
+                </div>
+                <div class="admin-editor-panel" id="adminCredentialsEditor" hidden>
+                  <div class="admin-form-stack">
+                    <input id="adminNewUsername" class="admin-input" type="text" placeholder="New admin username" autocomplete="username" />
+                    <input id="adminCurrentPassword" class="admin-input" type="password" placeholder="Current admin password" autocomplete="current-password" />
+                    <input id="adminNewPassword" class="admin-input" type="password" placeholder="New admin password" autocomplete="new-password" />
+                    <input id="adminConfirmPassword" class="admin-input" type="password" placeholder="Confirm new admin password" autocomplete="new-password" />
+                  </div>
+                  <div class="btn-row admin-control-actions">
+                    <button class="btn-system" id="adminSaveCredentialsBtn" type="submit">Update Admin Login</button>
+                  </div>
                 </div>
               </form>
             </section>

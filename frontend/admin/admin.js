@@ -11,6 +11,8 @@ const ADMIN_PROVIDER_META = {
 };
 
 let adminPollTimer = null;
+let adminStatusAnimationToken = 0;
+let adminStatusTimeouts = [];
 
 function adminApiUrl(path) {
   return `${ADMIN_API_BASE_URL}${path}`;
@@ -69,9 +71,98 @@ function getAdminIcon(name) {
   return "";
 }
 
-function setAdminStatus(message, state = "") {
+function clearAdminStatusAnimation() {
+  adminStatusAnimationToken += 1;
+  adminStatusTimeouts.forEach((timer) => clearTimeout(timer));
+  adminStatusTimeouts = [];
+}
+
+function queueAdminStatusTimeout(callback, delay) {
+  const timer = setTimeout(callback, delay);
+  adminStatusTimeouts.push(timer);
+}
+
+function setAdminLiveState(state) {
+  const chip = document.querySelector(".admin-live-chip");
+  const liveState = document.getElementById("adminLiveState");
+  if (!chip || !liveState) return;
+
+  chip.classList.remove("is-live", "is-locked", "is-updating");
+
+  if (state === "live") {
+    liveState.textContent = "LIVE";
+    chip.classList.add("is-live");
+    return;
+  }
+
+  if (state === "updating") {
+    liveState.textContent = "UPDATING";
+    chip.classList.add("is-updating");
+    return;
+  }
+
+  liveState.textContent = "LOCKED";
+  chip.classList.add("is-locked");
+}
+
+function setAdminStatus(message = "", state = "", options = {}) {
   const status = document.getElementById("adminStatusText");
   if (!status) return;
+
+  clearAdminStatusAnimation();
+  status.classList.remove("is-error", "is-ready", "is-welcome", "is-fading");
+
+  if (!message) {
+    status.textContent = "";
+    return;
+  }
+
+  if (options.animate) {
+    const token = adminStatusAnimationToken;
+    const text = String(message);
+    let cursor = 0;
+
+    status.classList.add("is-welcome");
+    status.textContent = "";
+
+    const typeIn = () => {
+      if (token !== adminStatusAnimationToken) return;
+      cursor += 1;
+      status.textContent = text.slice(0, cursor);
+
+      if (cursor < text.length) {
+        queueAdminStatusTimeout(typeIn, options.typeSpeed || 34);
+        return;
+      }
+
+      queueAdminStatusTimeout(() => {
+        if (token !== adminStatusAnimationToken) return;
+
+        const typeOut = () => {
+          if (token !== adminStatusAnimationToken) return;
+          cursor -= 1;
+          status.classList.toggle("is-fading", cursor <= Math.ceil(text.length / 2));
+          status.textContent = text.slice(0, Math.max(cursor, 0));
+
+          if (cursor > 0) {
+            queueAdminStatusTimeout(typeOut, options.deleteSpeed || 22);
+            return;
+          }
+
+          status.classList.remove("is-welcome", "is-fading");
+          status.textContent = "";
+        };
+
+        typeOut();
+      }, options.holdMs || 4000);
+
+      return;
+    };
+
+    typeIn();
+    return;
+  }
+
   status.textContent = message;
   status.classList.toggle("is-error", state === "error");
   status.classList.toggle("is-ready", state === "ready");
@@ -81,12 +172,11 @@ function setAdminAuthState(authenticated) {
   const loginCard = document.getElementById("adminLoginCard");
   const dashboard = document.getElementById("adminDashboard");
   const logoutBtn = document.getElementById("adminLogoutBtn");
-  const liveState = document.getElementById("adminLiveState");
 
   if (loginCard) loginCard.hidden = authenticated;
   if (dashboard) dashboard.hidden = !authenticated;
   if (logoutBtn) logoutBtn.hidden = !authenticated;
-  if (liveState) liveState.textContent = authenticated ? "LIVE" : "LOCKED";
+  setAdminLiveState(authenticated ? "live" : "locked");
 }
 
 function adminFetch(path, options = {}) {
@@ -236,6 +326,16 @@ function renderAdminControls(overview) {
   }
 }
 
+function toggleAdminEditor(panelId, buttonId, showLabel, hideLabel) {
+  const panel = document.getElementById(panelId);
+  const button = document.getElementById(buttonId);
+  if (!panel || !button) return;
+
+  const willOpen = panel.hidden;
+  panel.hidden = !willOpen ? true : false;
+  button.textContent = willOpen ? hideLabel : showLabel;
+}
+
 async function refreshAdminOverview() {
   const res = await adminFetch("/admin/overview", { method: "GET" });
   const data = await res.json();
@@ -293,9 +393,9 @@ async function adminLogin() {
   if (data.admin_token) {
     localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, data.admin_token);
   }
-  setAdminStatus(data.message || "Admin session unlocked.", "ready");
   await refreshAdminOverview();
   startAdminPolling();
+  setAdminStatus(`Welcome back, ${data.username || username}.`, "ready", { animate: true, holdMs: 4000 });
 }
 
 async function adminLogout() {
@@ -303,7 +403,7 @@ async function adminLogout() {
   localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
   stopAdminPolling();
   setAdminAuthState(false);
-  setAdminStatus("Admin session cleared.");
+  setAdminStatus("");
 }
 
 async function toggleAdminKey(key, active) {
@@ -376,6 +476,8 @@ async function updateAdminMasterKey() {
     return;
   }
 
+  setAdminLiveState("updating");
+
   const res = await adminFetch("/admin/master-key", {
     method: "POST",
     body: JSON.stringify({ new_key: newKey }),
@@ -383,11 +485,13 @@ async function updateAdminMasterKey() {
   const data = await res.json();
 
   if (!res.ok) {
+    setAdminLiveState("live");
     setAdminStatus(data.error || "Could not update the master key.", "error");
     return;
   }
 
   input.value = "";
+  setAdminLiveState("live");
   setAdminStatus(data.message || "Master key updated.", "ready");
   await refreshAdminOverview();
 }
@@ -410,6 +514,8 @@ async function updateAdminCredentials() {
     }
   }
 
+  setAdminLiveState("updating");
+
   const res = await adminFetch("/admin/credentials", {
     method: "POST",
     body: JSON.stringify({
@@ -421,6 +527,7 @@ async function updateAdminCredentials() {
   const data = await res.json();
 
   if (!res.ok) {
+    setAdminLiveState("live");
     setAdminStatus(data.error || "Could not update admin login details.", "error");
     return;
   }
@@ -428,6 +535,7 @@ async function updateAdminCredentials() {
   document.getElementById("adminCurrentPassword").value = "";
   document.getElementById("adminNewPassword").value = "";
   document.getElementById("adminConfirmPassword").value = "";
+  setAdminLiveState("live");
   setAdminStatus(data.message || "Admin login details updated.", "ready");
   await refreshAdminOverview();
 }
@@ -439,12 +547,12 @@ async function syncAdminSession() {
   if (!data.authenticated) {
     localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
     setAdminAuthState(false);
-    setAdminStatus("Enter admin credentials to manage CodeSentinel keys.");
+    setAdminStatus("");
     return;
   }
 
   setAdminAuthState(true);
-  setAdminStatus(`Logged in as ${data.username}.`, "ready");
+  setAdminStatus("");
   await refreshAdminOverview();
   startAdminPolling();
 }
@@ -466,6 +574,24 @@ document.getElementById("adminMasterForm").addEventListener("submit", (event) =>
 document.getElementById("adminCredentialsForm").addEventListener("submit", (event) => {
   event.preventDefault();
   updateAdminCredentials().catch((error) => setAdminStatus(error.message || "Could not update admin login details.", "error"));
+});
+
+document.getElementById("toggleMasterEditorBtn").addEventListener("click", () => {
+  toggleAdminEditor(
+    "adminMasterEditor",
+    "toggleMasterEditorBtn",
+    "Show Master Key Editor",
+    "Hide Master Key Editor",
+  );
+});
+
+document.getElementById("toggleCredentialsEditorBtn").addEventListener("click", () => {
+  toggleAdminEditor(
+    "adminCredentialsEditor",
+    "toggleCredentialsEditorBtn",
+    "Show Admin Login Editor",
+    "Hide Admin Login Editor",
+  );
 });
 
 syncAdminSession().catch((error) => {
