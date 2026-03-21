@@ -651,7 +651,7 @@ function setBetaStatusText(message) {
   if (isUsedInviteMessage(text)) {
     const subject = encodeURIComponent("Need a new CodeSentinel beta key");
     const body = encodeURIComponent("Hey 100RAV,\n\nThis beta invitation key is already used. Please send me a new beta access key.\n\nThanks.");
-    status.innerHTML = `Sorry Bro but this Invitation key is already used. ask <a class="beta-access-owner-link" href="mailto:mx100rav@gmail.com?subject=${subject}&body=${body}">100RAV&nbsp;for&nbsp;new&nbsp;key</a>.`;
+    status.innerHTML = `Sorry Bro but this Invitation key is already used. ask <span class="beta-access-owner-inline"><a class="beta-access-owner-link" href="mailto:mx100rav@gmail.com?subject=${subject}&body=${body}">100RAV</a> for new key</span>.`;
     return;
   }
   if (text.startsWith("⚠")) {

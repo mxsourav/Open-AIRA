@@ -23,7 +23,7 @@
         <div>
           <span class="label">Admin Panel</span>
           <h1 class="play-title">CodeSentinel Key Control</h1>
-          <p class="section-desc">Monitor invite keys, terminate sessions, and toggle access in real time.</p>
+          <p class="section-desc">Monitor every beta key, edit the master key, and change admin login details live.</p>
         </div>
         <div class="admin-header-actions">
           <span class="chip">LIVE: <b id="adminLiveState">SYNCING</b></span>
@@ -63,12 +63,51 @@
           </div>
         </div>
 
-        <div class="admin-keys-head">
-          <div class="mono">Key Inventory</div>
-          <span class="mono admin-poll-note" id="adminPollNote">Polling every 5 seconds</span>
-        </div>
+        <div class="admin-main-grid">
+          <section class="admin-panel-card admin-inventory-card">
+            <div class="admin-keys-head">
+              <div>
+                <div class="mono">All Beta Keys</div>
+                <p class="admin-panel-note">Shows every invite key plus the master key, whether used or unused.</p>
+              </div>
+              <span class="mono admin-poll-note" id="adminPollNote">Polling every 5 seconds</span>
+            </div>
+            <div class="admin-keys-grid" id="adminKeysGrid"></div>
+          </section>
 
-        <div class="admin-keys-grid" id="adminKeysGrid"></div>
+          <div class="admin-side-stack">
+            <section class="admin-panel-card admin-control-card">
+              <div class="mono">Master Key</div>
+              <p class="admin-panel-note">Edit the master bypass key without exposing the full current value on screen.</p>
+              <div class="admin-control-readout">
+                <div class="admin-control-value" id="adminMasterMasked">Loading...</div>
+                <div class="admin-control-sub" id="adminMasterMeta">Master key usage info will appear here.</div>
+              </div>
+              <input id="adminMasterKeyInput" class="admin-input" type="text" placeholder="Enter a new master key" autocomplete="off" />
+              <div class="btn-row admin-control-actions">
+                <button class="btn-system" id="adminSaveMasterBtn" type="button">Update Master Key</button>
+              </div>
+            </section>
+
+            <section class="admin-panel-card admin-control-card">
+              <div class="mono">Admin Login Details</div>
+              <p class="admin-panel-note">Change the admin username and password after confirming the current password.</p>
+              <div class="admin-control-readout">
+                <div class="admin-control-value" id="adminCurrentUsername">Loading...</div>
+                <div class="admin-control-sub" id="adminAdminUpdatedAt">Last update info will appear here.</div>
+              </div>
+              <div class="admin-form-stack">
+                <input id="adminNewUsername" class="admin-input" type="text" placeholder="New admin username" autocomplete="username" />
+                <input id="adminCurrentPassword" class="admin-input" type="password" placeholder="Current admin password" autocomplete="current-password" />
+                <input id="adminNewPassword" class="admin-input" type="password" placeholder="New admin password" autocomplete="new-password" />
+                <input id="adminConfirmPassword" class="admin-input" type="password" placeholder="Confirm new admin password" autocomplete="new-password" />
+              </div>
+              <div class="btn-row admin-control-actions">
+                <button class="btn-system" id="adminSaveCredentialsBtn" type="button">Update Admin Login</button>
+              </div>
+            </section>
+          </div>
+        </div>
       </div>
     </section>
   </main>

@@ -1,20 +1,21 @@
 from __future__ import annotations
 
-import os
 from functools import wraps
 
 from flask import Blueprint, jsonify, request, session
-from werkzeug.security import check_password_hash
 
-from key_manager import init_key_store, list_access_keys, terminate_key_session, toggle_access_key
+from key_manager import (
+    get_admin_identity,
+    get_admin_overview,
+    init_key_store,
+    terminate_key_session,
+    toggle_access_key,
+    update_admin_credentials,
+    update_master_key,
+    verify_admin_login,
+)
 
 admin_bp = Blueprint("admin_bp", __name__)
-
-ADMIN_USERNAME = os.getenv("CODESENTINEL_ADMIN_USERNAME", "mxsourav")
-ADMIN_PASSWORD_HASH = os.getenv(
-    "CODESENTINEL_ADMIN_PASSWORD_HASH",
-    "scrypt:32768:8:1$VXTyRPRxJHXaFywB$0bd1e7553ac010930c448dd2bf8d9f21d3c1562c98528e74c3c819c63fca7437607ffac1209c4d8a6e8682adcdc83a3c4cdfd28c7e8ce988c5978920ef623f8a",
-)
 
 
 def admin_required(handler):
@@ -34,9 +35,10 @@ def ensure_key_store_ready():
 
 @admin_bp.route("/admin/session", methods=["GET"])
 def admin_session_status():
+    identity = get_admin_identity()
     return jsonify({
         "authenticated": bool(session.get("codesentinel_admin")),
-        "username": ADMIN_USERNAME if session.get("codesentinel_admin") else None,
+        "username": identity["username"] if session.get("codesentinel_admin") else None,
     })
 
 
@@ -46,15 +48,17 @@ def admin_login():
     username = str(data.get("username", "")).strip()
     password = str(data.get("password", "")).strip()
 
-    if username != ADMIN_USERNAME or not check_password_hash(ADMIN_PASSWORD_HASH, password):
-        return jsonify({"error": "Invalid admin credentials."}), 401
+    try:
+        identity = verify_admin_login(username, password)
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 401
 
     session["codesentinel_admin"] = True
-    session["codesentinel_admin_username"] = ADMIN_USERNAME
+    session["codesentinel_admin_username"] = identity["username"]
 
     return jsonify({
         "success": True,
-        "username": ADMIN_USERNAME,
+        "username": identity["username"],
         "message": "Admin session unlocked.",
     })
 
@@ -66,10 +70,17 @@ def admin_logout():
     return jsonify({"success": True, "message": "Admin session cleared."})
 
 
+@admin_bp.route("/admin/overview", methods=["GET"])
+@admin_required
+def admin_overview():
+    return jsonify(get_admin_overview())
+
+
 @admin_bp.route("/admin/keys", methods=["GET"])
 @admin_required
 def admin_keys():
-    return jsonify({"keys": list_access_keys()})
+    overview = get_admin_overview()
+    return jsonify({"keys": overview["keys"]})
 
 
 @admin_bp.route("/toggle-key", methods=["POST"])
@@ -99,3 +110,44 @@ def terminate_key():
         return jsonify({"error": str(error)}), 404
 
     return jsonify({"success": True, "key": record})
+
+
+@admin_bp.route("/admin/master-key", methods=["POST"])
+@admin_required
+def admin_update_master_key():
+    data = request.get_json() or {}
+    new_key = str(data.get("new_key", "")).strip()
+
+    try:
+        record = update_master_key(new_key)
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+
+    return jsonify({
+        "success": True,
+        "master_key": record,
+        "message": "Master key updated successfully.",
+    })
+
+
+@admin_bp.route("/admin/credentials", methods=["POST"])
+@admin_required
+def admin_update_credentials():
+    data = request.get_json() or {}
+    current_password = str(data.get("current_password", "")).strip()
+    new_username = str(data.get("new_username", "")).strip()
+    new_password = str(data.get("new_password", ""))
+
+    try:
+        identity = update_admin_credentials(current_password, new_username, new_password)
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+
+    session["codesentinel_admin"] = True
+    session["codesentinel_admin_username"] = identity["username"]
+
+    return jsonify({
+        "success": True,
+        "admin_user": identity,
+        "message": "Admin login details updated successfully.",
+    })
