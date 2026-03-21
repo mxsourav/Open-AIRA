@@ -30,11 +30,19 @@
   padding: 14px;
 }
 
+.admin-auth-card {
+  padding: 16px 16px 14px;
+}
+
+.admin-submit-form {
+  display: grid;
+}
+
 .admin-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  margin: 12px 0;
+  margin: 10px 0 8px;
 }
 
 .admin-form-stack {
@@ -61,11 +69,23 @@
 
 .admin-login-actions,
 .admin-control-actions {
-  margin-top: 12px;
+  margin-top: 10px;
+}
+
+.admin-login-actions {
+  justify-content: center;
 }
 
 .admin-status {
   color: var(--text-dim);
+  width: 100%;
+  margin-top: 10px;
+  margin-bottom: 0;
+  text-align: center;
+  white-space: nowrap;
+  letter-spacing: 0.08em;
+  font-size: 9.5px;
+  line-height: 1.2;
 }
 
 .admin-status.is-error {
@@ -411,6 +431,10 @@
   .admin-panel-note,
   .admin-control-sub {
     font-size: 11px;
+  }
+
+  .admin-status {
+    font-size: 9px;
   }
 }
 

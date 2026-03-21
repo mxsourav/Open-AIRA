@@ -438,7 +438,8 @@ async function syncAdminSession() {
   startAdminPolling();
 }
 
-document.getElementById("adminLoginBtn").addEventListener("click", () => {
+document.getElementById("adminLoginForm").addEventListener("submit", (event) => {
+  event.preventDefault();
   adminLogin().catch((error) => setAdminStatus(error.message || "Admin login failed.", "error"));
 });
 
@@ -446,33 +447,14 @@ document.getElementById("adminLogoutBtn").addEventListener("click", () => {
   adminLogout().catch((error) => setAdminStatus(error.message || "Admin logout failed.", "error"));
 });
 
-document.getElementById("adminSaveMasterBtn").addEventListener("click", () => {
+document.getElementById("adminMasterForm").addEventListener("submit", (event) => {
+  event.preventDefault();
   updateAdminMasterKey().catch((error) => setAdminStatus(error.message || "Could not update the master key.", "error"));
 });
 
-document.getElementById("adminSaveCredentialsBtn").addEventListener("click", () => {
+document.getElementById("adminCredentialsForm").addEventListener("submit", (event) => {
+  event.preventDefault();
   updateAdminCredentials().catch((error) => setAdminStatus(error.message || "Could not update admin login details.", "error"));
-});
-
-document.getElementById("adminPassword").addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    adminLogin().catch((error) => setAdminStatus(error.message || "Admin login failed.", "error"));
-  }
-});
-
-document.getElementById("adminMasterKeyInput").addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    updateAdminMasterKey().catch((error) => setAdminStatus(error.message || "Could not update the master key.", "error"));
-  }
-});
-
-document.getElementById("adminConfirmPassword").addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    updateAdminCredentials().catch((error) => setAdminStatus(error.message || "Could not update admin login details.", "error"));
-  }
 });
 
 syncAdminSession().catch((error) => {
