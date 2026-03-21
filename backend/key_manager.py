@@ -24,6 +24,13 @@ DEFAULT_ADMIN_PASSWORD_HASH = os.getenv(
     "CODESENTINEL_ADMIN_PASSWORD_HASH",
     "scrypt:32768:8:1$VXTyRPRxJHXaFywB$0bd1e7553ac010930c448dd2bf8d9f21d3c1562c98528e74c3c819c63fca7437607ffac1209c4d8a6e8682adcdc83a3c4cdfd28c7e8ce988c5978920ef623f8a",
 )
+PROVIDER_LABELS = {
+    "gemini": "Gemini",
+    "openai": "OpenAI",
+    "xai": "Grok",
+    "claude": "Claude",
+    "deepseek": "DeepSeek",
+}
 
 
 def utc_now_iso():
@@ -196,6 +203,7 @@ def init_key_store():
             """
         )
         ensure_column(conn, "access_keys", "active_device_hash", "active_device_hash TEXT")
+        ensure_column(conn, "access_keys", "last_provider", "last_provider TEXT")
 
         conn.execute(
             """
@@ -300,8 +308,11 @@ def serialize_key_row(row):
         "status": "Active" if active else "Inactive",
         "current_device": current_device,
         "session": session_label,
+        "first_used_time": row["claimed_at"] or "Never used",
         "last_used_time": row["last_used_time"] or "Never used",
         "last_ip": row["last_ip"] or "No IP yet",
+        "provider": row.get("last_provider") or "",
+        "provider_label": PROVIDER_LABELS.get(str(row.get("last_provider") or "").strip().lower(), "No provider yet"),
         "claimed": bool(row.get("claimed_at")),
     }
 
@@ -516,6 +527,29 @@ def terminate_key_session(access_key):
         updated = fetch_key_record(conn, access_key)
 
     return serialize_key_row(updated)
+
+
+def record_key_provider(access_key, provider):
+    candidate = str(access_key or "").strip()
+    provider_value = str(provider or "").strip().lower()
+    if not candidate or not provider_value:
+        return
+
+    init_key_store()
+    with get_connection() as conn:
+        row = fetch_key_record(conn, candidate)
+        if not row:
+            return
+
+        conn.execute(
+            """
+            UPDATE access_keys
+            SET last_provider = ?
+            WHERE key_value = ?
+            """,
+            (provider_value, candidate),
+        )
+        conn.commit()
 
 
 def get_admin_identity():

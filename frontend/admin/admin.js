@@ -1,6 +1,14 @@
 const ADMIN_CONFIG = window.CODESENTINEL_CONFIG || {};
 const ADMIN_API_BASE_URL = String(ADMIN_CONFIG.API_BASE_URL || "http://127.0.0.1:5000").replace(/\/+$/, "");
 
+const ADMIN_PROVIDER_META = {
+  gemini: { label: "Gemini", logo: "../assets/providers/gemini-color.svg" },
+  openai: { label: "OpenAI", logo: "../assets/providers/openai-color.svg" },
+  xai: { label: "Grok", logo: "../assets/providers/grok-color.svg" },
+  claude: { label: "Claude", logo: "../assets/providers/claude-color.svg" },
+  deepseek: { label: "DeepSeek", logo: "../assets/providers/deepseek-color.svg" },
+};
+
 let adminPollTimer = null;
 
 function adminApiUrl(path) {
@@ -14,6 +22,50 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function getProviderMeta(providerId) {
+  return ADMIN_PROVIDER_META[String(providerId || "").trim().toLowerCase()] || null;
+}
+
+function getAdminIcon(name) {
+  if (name === "copy") {
+    return `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="9" y="9" width="10" height="10" rx="2"></rect>
+        <path d="M7 15H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1"></path>
+      </svg>
+    `;
+  }
+
+  if (name === "power") {
+    return `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3v8"></path>
+        <path d="M6.3 6.3a8 8 0 1 0 11.4 0"></path>
+      </svg>
+    `;
+  }
+
+  if (name === "terminate") {
+    return `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M18 6 6 18"></path>
+        <path d="m6 6 12 12"></path>
+      </svg>
+    `;
+  }
+
+  if (name === "edit") {
+    return `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 20h9"></path>
+        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+      </svg>
+    `;
+  }
+
+  return "";
 }
 
 function setAdminStatus(message, state = "") {
@@ -45,10 +97,11 @@ function adminFetch(path, options = {}) {
 }
 
 function renderAdminSummary(keys) {
-  const total = keys.length;
-  const active = keys.filter((key) => key.active).length;
-  const bound = keys.filter((key) => key.current_device && key.current_device !== "No active device" && key.current_device !== "Master bypass ready").length;
-  const inactive = keys.filter((key) => !key.active).length;
+  const inviteKeys = keys.filter((key) => !key.is_master);
+  const total = inviteKeys.length;
+  const active = inviteKeys.filter((key) => key.active).length;
+  const bound = inviteKeys.filter((key) => key.current_device && key.current_device !== "No active device").length;
+  const inactive = inviteKeys.filter((key) => !key.active).length;
 
   document.getElementById("adminTotalKeys").textContent = total;
   document.getElementById("adminActiveKeys").textContent = active;
@@ -56,85 +109,101 @@ function renderAdminSummary(keys) {
   document.getElementById("adminInactiveKeys").textContent = inactive;
 }
 
+function renderProviderButton(key, index) {
+  const provider = getProviderMeta(key.provider);
+  if (!provider) {
+    return `<button class="admin-provider-button is-empty" type="button" disabled title="No AI provider used yet">--</button>`;
+  }
+
+  return `
+    <button class="admin-provider-button" type="button"
+      onclick="toggleProviderDetails(${index})"
+      title="Show ${escapeHtml(provider.label)} and IP details">
+      <img src="${provider.logo}" alt="${escapeHtml(provider.label)}" loading="lazy" />
+    </button>
+  `;
+}
+
 function renderAdminKeys(keys) {
   const grid = document.getElementById("adminKeysGrid");
   if (!grid) return;
 
-  if (!keys.length) {
+  const inviteKeys = keys.filter((key) => !key.is_master);
+
+  if (!inviteKeys.length) {
     grid.innerHTML = `
       <div class="admin-key-card">
-        <div class="admin-key-title">No keys found</div>
-        <div class="admin-key-mask">Key store is empty.</div>
+        <div class="admin-key-title">No beta keys found</div>
+        <div class="admin-key-mask">The invite inventory is empty.</div>
       </div>
     `;
     return;
   }
 
-  grid.innerHTML = keys.map((key) => {
+  grid.innerHTML = inviteKeys.map((key, index) => {
     const inactiveClass = key.active ? "" : " is-inactive";
-    const boundClass = key.current_device && key.current_device !== "No active device" && key.current_device !== "Master bypass ready" ? " is-bound" : "";
-    const masterClass = key.is_master ? " is-master" : "";
-    const usageLabel = key.last_used_time === "Never used" ? "Unused key" : "Used key";
-    const canManage = !key.is_master;
-    const maskedKey = key.is_master ? "***********" : key.masked_key;
+    const boundClass = key.current_device && key.current_device !== "No active device" ? " is-bound" : "";
+    const providerButton = renderProviderButton(key, index);
 
     return `
-      <div class="admin-key-card${inactiveClass}${boundClass}${masterClass}">
+      <div class="admin-key-card${inactiveClass}${boundClass}">
         <div class="admin-key-top">
-          <div>
-            <div class="admin-key-title">${escapeHtml(key.label)}</div>
-            <div class="admin-key-mask">${escapeHtml(maskedKey)}</div>
+          <div class="admin-key-id">
+            <div class="admin-key-rank">${escapeHtml(key.label)}</div>
+            <div class="admin-key-mask">${escapeHtml(key.masked_key)}</div>
           </div>
-          <div class="admin-key-top-actions">
-            <span class="admin-key-status ${key.active ? "is-active" : "is-inactive"}">${escapeHtml(key.status)}</span>
-            <button class="btn-system btn-mini btn-ghost admin-action-copy" type="button"
-              onclick="copyAdminKey('${escapeHtml(key.key)}', '${escapeHtml(key.label)}')">
-              Copy
+          <div class="admin-key-toolbar">
+            <button class="admin-icon-button admin-action-copy" type="button"
+              onclick="copyAdminKey('${escapeHtml(key.key)}', '${escapeHtml(key.label)}')"
+              title="Copy ${escapeHtml(key.label)} key">
+              ${getAdminIcon("copy")}
+            </button>
+            <span class="admin-state-dot ${key.active ? "is-active" : "is-inactive"}" title="${escapeHtml(key.status)}"></span>
+            <button class="admin-icon-button ${key.active ? "is-live" : "is-off"}" type="button"
+              onclick="toggleAdminKey('${escapeHtml(key.key)}', ${key.active ? "false" : "true"})"
+              title="${key.active ? "Deactivate" : "Activate"} ${escapeHtml(key.label)}">
+              ${getAdminIcon("power")}
+            </button>
+            <button class="admin-icon-button admin-action-terminate" type="button"
+              onclick="terminateAdminKey('${escapeHtml(key.key)}')"
+              title="Terminate ${escapeHtml(key.label)} session">
+              ${getAdminIcon("terminate")}
             </button>
           </div>
         </div>
 
-        <div class="admin-key-flags">
-          <span class="admin-key-flag">${escapeHtml(usageLabel)}</span>
-          <span class="admin-key-flag">${escapeHtml(key.session)}</span>
-        </div>
-
-        <div class="admin-key-meta">
-          <div class="admin-key-meta-item">
-            <div class="admin-key-meta-label">Current Device</div>
-            <div class="admin-key-meta-value">${escapeHtml(key.current_device)}</div>
+        <div class="admin-key-compact-grid">
+          <div class="admin-mini-detail">
+            <span>Device</span>
+            <b>${escapeHtml(key.current_device)}</b>
           </div>
-          <div class="admin-key-meta-item">
-            <div class="admin-key-meta-label">Last Used</div>
-            <div class="admin-key-meta-value">${escapeHtml(key.last_used_time)}</div>
+          <div class="admin-mini-detail">
+            <span>First Use</span>
+            <b>${escapeHtml(key.first_used_time)}</b>
           </div>
-          <div class="admin-key-meta-item">
-            <div class="admin-key-meta-label">Last IP</div>
-            <div class="admin-key-meta-value">${escapeHtml(key.last_ip)}</div>
+          <div class="admin-mini-detail">
+            <span>Last Use</span>
+            <b>${escapeHtml(key.last_used_time)}</b>
           </div>
-          <div class="admin-key-meta-item">
-            <div class="admin-key-meta-label">Mode</div>
-            <div class="admin-key-meta-value">${key.is_master ? "Master bypass" : "Invite key"}</div>
+          <div class="admin-mini-detail admin-provider-mini">
+            <span>AI / IP</span>
+            ${providerButton}
           </div>
         </div>
 
-        <div class="admin-key-actions">
-          ${canManage ? `
-            <button class="btn-system btn-mini ${key.active ? "btn-ghost" : ""}" type="button"
-              onclick="toggleAdminKey('${escapeHtml(key.key)}', ${key.active ? "false" : "true"})">
-              ${key.active ? "Deactivate" : "Activate"}
-            </button>
-            <button class="btn-system btn-mini btn-ghost admin-action-terminate" type="button"
-              onclick="terminateAdminKey('${escapeHtml(key.key)}')">
-              Terminate
-            </button>
-          ` : `
-            <button class="btn-system btn-mini btn-ghost admin-action-edit" type="button"
-              onclick="focusMasterEditor()">
-              Edit
-            </button>
-            <div class="admin-master-note">Use the master-key editor beside this list.</div>
-          `}
+        <div class="admin-provider-details" id="adminProviderDetails-${index}" hidden>
+          <div class="admin-provider-detail-row">
+            <span>Provider</span>
+            <b>${escapeHtml(key.provider_label || "No provider yet")}</b>
+          </div>
+          <div class="admin-provider-detail-row">
+            <span>Last IP</span>
+            <b>${escapeHtml(key.last_ip)}</b>
+          </div>
+          <div class="admin-provider-detail-row">
+            <span>Session</span>
+            <b>${escapeHtml(key.session)}</b>
+          </div>
         </div>
       </div>
     `;
@@ -275,6 +344,19 @@ function focusMasterEditor() {
   input.focus();
 }
 
+function toggleProviderDetails(index) {
+  const target = document.getElementById(`adminProviderDetails-${index}`);
+  if (!target) return;
+
+  document.querySelectorAll(".admin-provider-details").forEach((panel) => {
+    if (panel !== target) {
+      panel.hidden = true;
+    }
+  });
+
+  target.hidden = !target.hidden;
+}
+
 async function updateAdminMasterKey() {
   const input = document.getElementById("adminMasterKeyInput");
   const newKey = input.value.trim();
@@ -402,3 +484,4 @@ window.toggleAdminKey = toggleAdminKey;
 window.terminateAdminKey = terminateAdminKey;
 window.copyAdminKey = copyAdminKey;
 window.focusMasterEditor = focusMasterEditor;
+window.toggleProviderDetails = toggleProviderDetails;

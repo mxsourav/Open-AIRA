@@ -6,7 +6,7 @@ import re
 import requests
 
 from admin_routes import admin_bp
-from key_manager import authenticate_access_key, init_key_store, verify_access_key
+from key_manager import authenticate_access_key, init_key_store, record_key_provider, verify_access_key
 
 app = Flask(__name__)
 CORS(
@@ -182,6 +182,10 @@ def get_api_context(data):
         raise ValueError("API key is required. Enter your own key to unlock CodeSentinel.")
     provider = normalize_provider((data or {}).get("provider"))
     return api_key, provider
+
+
+def touch_beta_provider(data, provider):
+    record_key_provider((data or {}).get("beta_access_key"), provider)
 
 
 def normalize_debug_state(raw_state):
@@ -728,6 +732,7 @@ def validate_api_key():
         require_beta_access(data)
         api_key, provider = get_api_context(data)
         validate_api_key_value(api_key, provider)
+        touch_beta_provider(data, provider)
         return jsonify({
             "success": True,
             "provider": provider,
@@ -785,6 +790,8 @@ def debug_code():
         api_key, provider = get_api_context(data)
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
+
+    touch_beta_provider(data, provider)
 
     if mode == "debug":
         try:
@@ -857,6 +864,7 @@ def submit_thought():
     try:
         require_beta_access(data)
         api_key, provider = get_api_context({**data, "provider": provider})
+        touch_beta_provider(data, provider)
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
 
@@ -950,6 +958,7 @@ def next_hint():
     try:
         require_beta_access(data)
         api_key, provider = get_api_context({**data, "provider": provider})
+        touch_beta_provider(data, provider)
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
 
