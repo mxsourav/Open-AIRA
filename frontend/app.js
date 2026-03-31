@@ -1170,28 +1170,44 @@ async function submitApiKey() {
 
 async function activateDemoMode() {
   const input = document.getElementById("apiKeyInput");
+  const requestBody = JSON.stringify({ provider: DEMO_PROVIDER, use_demo: true });
 
-  try {
-    const res = await fetch(buildApiUrl("/api-key"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ provider: DEMO_PROVIDER, use_demo: true })
-    });
-    const data = await res.json();
+  setApiGate(false, "Waking the demo connection...");
 
-    if (!res.ok) {
-      setApiGate(false, data.error || "Demo connection could not start right now.");
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const res = await fetch(buildApiUrl("/api-key"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: requestBody
+      });
+      const raw = await res.text();
+      const data = raw ? JSON.parse(raw) : {};
+
+      if (!res.ok) {
+        if (attempt === 0) {
+          await new Promise((resolve) => window.setTimeout(resolve, 1200));
+          continue;
+        }
+        setApiGate(false, data.error || "Demo connection could not start right now.");
+        return;
+      }
+
+      clearStoredApiKey();
+      storeDemoMode(true);
+      if (input) {
+        input.value = "";
+      }
+      setApiGate(true, "Demo connection active in this browser session.");
+      return;
+    } catch (error) {
+      if (attempt === 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, 1200));
+        continue;
+      }
+      setApiGate(false, "Demo connection is not reachable right now. Try your own API key instead.");
       return;
     }
-
-    clearStoredApiKey();
-    storeDemoMode(true);
-    if (input) {
-      input.value = "";
-    }
-    setApiGate(true, "Demo connection active in this browser session.");
-  } catch (error) {
-    setApiGate(false, "Demo connection is not reachable right now. Try your own API key instead.");
   }
 }
 
