@@ -222,7 +222,7 @@ const BETA_DEVICE_LABEL_STORAGE_KEY = "codesentinel_beta_device_label";
 const BETA_SESSION_TOKEN_STORAGE_KEY = "codesentinel_beta_session_token";
 const API_KEY_STORAGE_KEY = "codesentinel_user_api_key";
 const API_PROVIDER_STORAGE_KEY = "codesentinel_api_provider";
-const RELEASE_TIMESTAMP = "2026-04-01T21:15:00+05:30";
+const RELEASE_TIMESTAMP = "2026-04-01T03:06:22+05:30";
 
 function escapeHtml(value) {
   return String(value)
@@ -277,8 +277,18 @@ function startReleaseTimer() {
   }
   if (!buildStampEl) return;
 
-  const releaseTime = new Date(RELEASE_TIMESTAMP).getTime();
-  if (Number.isNaN(releaseTime)) {
+  const releaseCandidates = [
+    APP_CONFIG.RELEASE_TIMESTAMP,
+    RELEASE_TIMESTAMP,
+    document.lastModified
+  ];
+
+  const now = Date.now();
+  const releaseTime = releaseCandidates
+    .map((value) => new Date(value).getTime())
+    .find((time) => !Number.isNaN(time) && time <= now + 60_000);
+
+  if (!Number.isFinite(releaseTime)) {
     buildStampEl.textContent = "release time unavailable";
     return;
   }
