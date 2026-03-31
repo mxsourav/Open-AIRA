@@ -165,6 +165,18 @@ PROVIDERS = {
         "uses_server_key": True,
     },
 }
+
+INITIAL_DEBUG_MESSAGES = {
+    "beginner": (
+        "Let's break it down step by step. Read the code once, then tell me which line or area feels suspicious first."
+    ),
+    "intermediate": (
+        "Scan the code and call out the first area that looks broken. Keep your guess specific."
+    ),
+    "pro": (
+        "Point to the first suspicious line or failure point."
+    ),
+}
 def normalize_command(text):
     stripped = (text or "").strip().lower()
     return COMMAND_ALIASES.get(stripped)
@@ -191,6 +203,12 @@ def get_provider_label(provider):
 def get_mode_instruction(debug_mode, stage):
     selected_mode = normalize_debug_mode(debug_mode)
     return DEBUG_MODES[selected_mode][stage]
+
+
+def build_initial_debug_message(debug_mode):
+    return INITIAL_DEBUG_MESSAGES[normalize_debug_mode(debug_mode)]
+
+
 def require_beta_access(data):
     return None
 
@@ -206,7 +224,7 @@ def get_api_context(data):
 
     api_key = str((data or {}).get("api_key", "")).strip()
     if not api_key:
-            raise ValueError("API key is required. Enter your own key to unlock Open AIRA.")
+        raise ValueError("API key is required. Enter your own key to unlock Open AIRA.")
     return api_key, provider
 
 
@@ -288,6 +306,76 @@ def parse_api_error(response):
         return details
 
     return "Provider API request failed"
+
+
+POSITIVE_THOUGHT_PATTERNS = [
+    r"\byou(?:'re| are)? right\b",
+    r"\bcorrect\b",
+    r"\bgood catch\b",
+    r"\bnice catch\b",
+    r"\bexactly\b",
+    r"\byes[,!\s]",
+]
+
+
+def thought_matches_obvious_bug(code, thought):
+    code_text = str(code or "")
+    thought_text = str(thought or "").lower()
+
+    if "colon" in thought_text:
+        if re.search(r"^\s*(if|elif|else|for|while|def|class)\b[^:\n]*$", code_text, re.MULTILINE):
+            return True
+
+    if any(token in thought_text for token in ["string", "number", "int", "concatenate", "concat"]):
+        if re.search(r'print\s*\(\s*["\'][^"\']*["\']\s*\+\s*[A-Za-z_]\w*\s*\)', code_text):
+            return True
+
+    if any(token in thought_text for token in ["typo", "misspell", "spelling", "wrong variable", "invoice", "invoce"]):
+        if "invoce" in code_text and "invoice" in thought_text:
+            return True
+        if "return invoce" in code_text.lower():
+            return True
+
+    if "semicolon" in thought_text:
+        if re.search(r"^\s*(?:int|float|double|char|bool|printf|return)\b[^;\n]*$", code_text, re.MULTILINE):
+            return True
+
+    return False
+
+
+def response_sounds_positive(reply_text):
+    text = str(reply_text or "").strip().lower()
+    return any(re.search(pattern, text) for pattern in POSITIVE_THOUGHT_PATTERNS)
+
+
+def normalize_evaluation_result(result, code, thought):
+    normalized = {
+        "bug_found": bool(result.get("bug_found")),
+        "fixed_code_provided": bool(result.get("fixed_code_provided")),
+        "thought_state": str(result.get("thought_state", "wrong")).strip().lower(),
+        "reply": str(result.get("reply", "")).strip() or "Keep going.",
+    }
+
+    if normalized["thought_state"] not in {"correct_bug", "wrong"}:
+        normalized["thought_state"] = "correct_bug" if normalized["bug_found"] else "wrong"
+
+    if normalized["fixed_code_provided"]:
+        normalized["bug_found"] = True
+        normalized["thought_state"] = "correct_bug"
+        normalized["reply"] = DONE_MESSAGE
+        return normalized
+
+    if normalized["bug_found"]:
+        normalized["thought_state"] = "correct_bug"
+        normalized["reply"] = FOUND_MESSAGE
+        return normalized
+
+    if response_sounds_positive(normalized["reply"]) or thought_matches_obvious_bug(code, thought):
+        normalized["bug_found"] = True
+        normalized["thought_state"] = "correct_bug"
+        normalized["reply"] = FOUND_MESSAGE
+
+    return normalized
 
 
 def validate_openai_compatible_key(api_key, provider):
@@ -641,10 +729,10 @@ Return ONLY valid JSON in this exact shape:
 Rules:
 - Response mode: {normalize_debug_mode(debug_mode)}
 - {get_mode_instruction(debug_mode, "thought")}
-- bug_found is true only if the student correctly identified the real main bug.
+- bug_found is true if the student correctly identified any real bug or valid issue in the code.
 - fixed_code_provided is true only if the student has provided a corrected version of the code that fixes the main issue.
-- thought_state must be "correct_bug" only when the student clearly caught the real bug.
-- thought_state must be "wrong" when the student's guess is not the real bug.
+- thought_state must be "correct_bug" when the student clearly points to a real bug.
+- thought_state must be "wrong" only when the student's guess is not a real bug.
 - If bug_found is true but fixed_code_provided is false, set reply to: "{FOUND_MESSAGE}"
 - If fixed_code_provided is true, set reply to: "{DONE_MESSAGE}"
 - If thought_state is "wrong", reply in very easy English and directly say the guess is wrong.
@@ -653,16 +741,7 @@ Rules:
 """
 
     data = parse_json_response(call_model(api_key, prompt, provider, response_mime_type="application/json"))
-    thought_state = str(data.get("thought_state", "wrong")).strip().lower()
-    if thought_state not in {"correct_bug", "wrong"}:
-        thought_state = "correct_bug" if bool(data.get("bug_found")) else "wrong"
-
-    return {
-        "bug_found": bool(data.get("bug_found")),
-        "fixed_code_provided": bool(data.get("fixed_code_provided")),
-        "thought_state": thought_state,
-        "reply": str(data.get("reply", "")).strip() or "Keep going."
-    }
+    return normalize_evaluation_result(data, code, thought)
 
 
 def coach_after_bug_found(api_key, code, thought, debug_mode, provider):
@@ -843,21 +922,6 @@ def debug_code():
         except Exception as error:
             return jsonify({"error": str(error)}), 500
 
-    prompt = f"""
-You are Open AIRA, a friendly debugging coach.
-
-The user is in {mode} mode.
-The selected debug mode is {debug_mode}.
-Here is the code:
-{code}
-
-{get_mode_instruction(debug_mode, "initial")}
-
-Do not solve the bug yet.
-Ask the student where they think the problem is.
-Keep it short.
-"""
-
     try:
         return jsonify({
             "debug_state": {
@@ -868,7 +932,7 @@ Keep it short.
                 "debug_mode": debug_mode,
                 "provider": provider
             },
-            "message": call_model(api_key, prompt, provider)
+            "message": build_initial_debug_message(debug_mode)
         })
     except Exception as error:
         return jsonify({"error": str(error)}), 500
@@ -962,8 +1026,29 @@ In 1 or 2 short sentences, say whether they should keep checking that area or lo
 """
 
         try:
+            fallback_reply = call_model(api_key, prompt, provider)
+            normalized = normalize_evaluation_result(
+                {
+                    "bug_found": False,
+                    "fixed_code_provided": False,
+                    "thought_state": "wrong",
+                    "reply": fallback_reply,
+                },
+                state["code"],
+                thought,
+            )
+
+            if normalized["bug_found"]:
+                state["bug_found"] = True
+                return jsonify({
+                    "message": FOUND_MESSAGE,
+                    "bug_found": True,
+                    "thought_state": "correct_bug",
+                    "debug_state": {**state, "provider": provider}
+                })
+
             return jsonify({
-                "message": call_model(api_key, prompt, provider),
+                "message": normalized["reply"],
                 "bug_found": False,
                 "thought_state": "wrong",
                 "debug_state": {**state, "provider": provider}
