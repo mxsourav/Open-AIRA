@@ -1,0 +1,29 @@
+CodeSentinel V1.0 Origin Notes
+==============================
+
+Project:
+CodeSentinel
+
+Purpose of V1.0:
+Establish the original guided debugging idea that later grew into Open AIRA.
+
+Main foundation in V1.0:
+
+1. Core idea introduced
+- The project started as a browser-based AI debugging helper.
+- The goal was to guide learners through bugs instead of only dumping final answers.
+
+2. First debug workflow established
+- Users could paste code into the interface.
+- The app focused on identifying bug locations and responding in a coaching style.
+
+3. Early UI direction established
+- A dark interface and monospaced labels were used from the beginning.
+- The project started forming the visual identity that later evolved through the beta versions.
+
+4. Product direction set
+- The tool was positioned as a learning-first debugger.
+- This early direction later shaped Debug mode, Fix mode, stats, and guided hints.
+
+Version note:
+This file records the project origin before the larger structured updates that started in V2.0.

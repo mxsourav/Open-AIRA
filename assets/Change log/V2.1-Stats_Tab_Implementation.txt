@@ -1,5 +1,5 @@
-Stats Tab Implementation v2.01
-=============================
+CodeSentinel V2.1 Change Notes
+==============================
 
 Feature added:
 A dedicated stats area below the response box in Debug mode only.
@@ -36,4 +36,4 @@ Files updated for this feature:
 - frontend/style.css
 
 Version note:
-This file documents the Stats tab implementation added after V2 as V2.01.
+This file documents the Stats tab implementation added after V2.0 as V2.1.

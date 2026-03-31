@@ -1,93 +1,110 @@
-CodeSentinel V3.0 Beta Change Notes
-===================================
+CodeSentinel V3.0 Change Notes
+==============================
 
 Project:
 CodeSentinel
 
-Purpose of V3.0 Beta:
-Upgrade CodeSentinel from a trial launch build into a stronger public beta with richer debugging feedback, mode-based AI behavior, better branding, and a more polished live product feel.
+Purpose of V3.0:
+Move the project from an early guided-debug prototype into a more complete trial-launch build with stronger workflow control, cleaner fix-mode output, API-gated access, and better frontend polish.
 
-Main changes added in V3.0 Beta:
+Main changes added in V3.0:
 
-1. Advanced Stats system added
-- A new Advanced Stats section was added below the normal stats area.
-- It includes Learning Progress, Give Up Rate, Hint Dependency, Independent Solve Streak, Time to Solve, First Try Accuracy, and Wrong Turns.
-- Advanced Stats is hidden by default and can be shown only when needed.
-- The Response and Controls panels expand together when Advanced Stats is opened so the layout stays aligned.
+1. API Registration system added
+- A new API Registration section was added above the main debugger area.
+- Users must submit their AI API key before CodeSentinel can start.
+- The main debugger stays locked until the API key is accepted.
+- A Remove API Key button was added so the key can be cleared and the app can be locked again.
 
-2. Full-record export added
-- Normal stats can still be downloaded separately.
-- A second export option now downloads a combined full debugging record with both normal and advanced stats.
-- The full-record export is available only when Advanced Stats is enabled.
+2. Fix mode was redesigned
+- Fix mode no longer uses the normal response-and-stats layout.
+- The left side now switches into a dedicated Fix layout.
+- Fixed code is shown in its own card.
+- Change log is shown in a separate card below it.
+- This makes direct correction easier to read and keeps explanation separate from output code.
 
-3. Debug Mode Selector system added
-- The old assist panel was replaced with a real Debug Mode Selector.
-- Users can now choose Beginner, Intermediate, or Pro.
-- Only one active mode is shown at a time through a segmented selector and a single dynamic mode card.
-- The panel explains:
-  - How AI Will Respond
-  - What You Won't Get
-  - Best For
+3. Fixed code output improved
+- Fixed code now uses syntax-highlighted rendering instead of plain text.
+- A copy icon button replaced the older copy text button.
+- Copy behavior now works more like a modern code assistant UI.
+- Fixed code scroll behavior and rounding were improved to preserve card shape.
 
-4. AI behavior now changes by debug mode
-- Debug mode selection is no longer just visual.
-- The selected mode is sent to the backend with requests.
-- Beginner gives more guided, teaching-style responses.
-- Intermediate gives directional help with less explanation.
-- Pro gives short, minimal debugging-style observations.
+4. Change Log box behavior improved
+- The Change Log box now has its own stable layout and scrolling behavior.
+- Long explanations no longer stretch the whole card or break panel alignment.
+- Text wrapping was improved so API error or quota messages stay inside the box.
+- Scrollbar styling was adjusted to fit the inner outline better.
 
-5. Thought Input behavior refined by state
-- Thought Input now changes its max visible lines depending on app state.
-- In Debug mode with Advanced Stats off, users get a larger free-writing area before scrolling starts.
-- In tighter layouts like Advanced Stats on, the input stays more compact to protect the panel balance.
-- Fix mode keeps its own larger writing limit.
+5. Debug vs Fix mode layout separation improved
+- Stats remain visible only in Debug mode.
+- Fix mode hides stats and replaces them with direct output cards.
+- Main panel heights were tuned so mode switching feels more stable.
+- Response and Controls tab spacing was polished to reduce visual jumps.
 
-6. Button system redesigned
-- Main action buttons were upgraded with a more premium interactive feel.
-- Hover, press, glow, gradient, and depth styling were improved.
-- Button roles were clarified visually:
-  - Run = primary
-  - Clear = ghost
-  - Send = cyan
+6. Response styling improved
+- User thoughts and AI replies are now visually easier to distinguish.
+- Hint replies were given their own highlighted style.
+- Wrong-thought replies were colored more clearly.
+- Success messages and bug-found messages were given special output styling.
+- Help output styling was improved again for readability.
+
+7. Progress and stats system refined
+- Progress updates were tied more closely to whether a thought is correct, close, or wrong.
+- Wrong turns now reduce the progress bar instead of always increasing it.
+- Already-correct code now fills progress to 100 percent and resets the counters.
+- Download Stats and Reset Stats logic was improved.
+- Stats panel structure was polished with a more balanced card layout.
+
+8. Thought input behavior improved
+- Thought input was upgraded from a simple field into a more responsive expanding box.
+- Auto-resize behavior was refined so the box grows and shrinks with typing more naturally.
+- Max visible lines behavior was improved before scrolling begins.
+- After sending a thought, the box clears and resets itself.
+
+9. Input and panel UI polish improved
+- Work Mode, Input Code, and Thought Input were organized into cleaner control cards.
+- Run and Clear buttons now sit directly under the code box.
+- Send Thought, Next Hint, and I Did It now sit directly under the thought box.
+- Button coloring was tuned again:
+  - Send Thought = sky blue
   - Next Hint = yellow
-  - I Did It = green
-  - Debug = warm
-  - Fix = neutral
+  - I Did It = soft green
 
-7. Hero branding improved
-- The large hero title text was replaced with a logo-based presentation.
-- Separate dark-mode and light-mode logo variants are now supported.
-- The hero card background was tuned to better match the logo background for cleaner blending.
+10. Backend guardrails improved further
+- API key routes were added for checking, setting, and removing the live key.
+- Non-code inputs are blocked more cleanly.
+- Code-generation-style prompts are blocked so CodeSentinel stays focused on debugging.
+- Already-clean code is detected and handled with a separate chill-style success reply.
+- Fix mode parsing became more reliable with fallback handling for messy AI output.
 
-8. Footer versioning improved
-- Footer version text now reflects the V3.0 Beta build.
-- Build display was upgraded into a live release timer that shows how much time has passed since the latest release.
-- This gives the beta build a clearer live-product identity.
+11. Fix mode generation stability improved
+- Backend parsing for fixed code and change logs was improved.
+- Fallback extraction logic was added for cases where Gemini returns unexpected formatting.
+- Change log extraction became more structured.
+- Fix output now fails more gracefully when the API has problems.
 
-9. Debug mode information panel improved
-- The lower-right debug information area became more useful and structured.
-- Instead of repeating generic help, it now explains each AI response mode clearly and professionally.
-- The panel adapts without breaking the existing controls layout.
+12. Scrollbar and corner polish improved
+- Input Code, Thought Input, Fixed Code, and Change Log scrolling behavior were refined.
+- Rounded corners were preserved better while scrolling.
+- Inner scrollbar styling was adjusted to avoid breaking card shapes.
 
-10. Public beta presentation polished
-- The interface now feels more like a real public beta product instead of only a test tool.
-- Branding, mode explanation, stats visibility, and release identity were all improved for launch readiness.
+13. API-gated launch workflow prepared
+- The project now behaves more like a user-facing trial build.
+- The software no longer starts fully open by default.
+- Users must unlock the app through API registration before using Debug or Fix.
 
-Files mainly updated in V3.0 Beta:
+Files mainly updated in V2.9:
 - backend/server.py
-- frontend/app.js
 - frontend/index.html
+- frontend/app.js
 - frontend/style.css
 
-Related assets updated in this phase:
-- assets/logo_black.png
-- assets/logo_white.png
-- frontend/assets/logo_black.png
-- frontend/assets/logo_white.png
+Related assets updated during this phase:
+- assets/Draft 2 CodeSentinel.docx
+- assets/Draft 2 CodeSentinel - Updated.docx
 
 Verification done:
 - Python backend syntax check passed.
 - Frontend JavaScript syntax check passed.
 
 Version note:
-This file documents the major public-beta upgrades added after V2.9 as CodeSentinel V3.0 Beta.
+This file documents the larger workflow, UI, and API-registration updates added after V2.1 as V3.0.

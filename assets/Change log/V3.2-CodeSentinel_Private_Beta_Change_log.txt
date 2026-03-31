@@ -1,13 +1,13 @@
-CodeSentinel V3.1 Beta Change Notes
-===================================
+CodeSentinel V3.2 Private Beta Change Notes
+===========================================
 
 Project:
 CodeSentinel
 
-Purpose of V3.1 Beta:
+Purpose of V3.2 Private Beta:
 Expand CodeSentinel from a single-provider beta into a gated private beta with multi-provider AI access, better onboarding, and stronger release control for invited testers.
 
-Main changes added in V3.1 Beta:
+Main changes added in V3.2 Private Beta:
 
 1. Multi-provider API support added
 - CodeSentinel no longer depends on Gemini only.
@@ -74,4 +74,4 @@ Verification done:
 - Frontend JavaScript syntax check passed.
 
 Version note:
-This file documents the major feature upgrades added after V3.0 Beta as CodeSentinel V3.1 Beta.
+This file documents the private-beta upgrades added after V3.1 Beta as CodeSentinel V3.2 Private Beta.
