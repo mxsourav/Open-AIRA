@@ -1,53 +1,50 @@
-# CodeSentinel
+![Open AIRA](assets/Logo/readme_logo.png)
 
-Portable AI-powered debugging trainer with guided coaching, direct fix mode, and progress tracking.
+# Open AIRA
 
-## Overview
+Open-source Adaptive Intelligent Reasoning Assistant for guided debugging, direct fixes, and progress tracking.
 
-CodeSentinel is a browser-first debugging trainer built to help users think through bugs instead of jumping straight to the final answer. It has two main workflows:
+## What It Is
+
+Open AIRA is a browser-first debugging workspace built to help people think through bugs instead of jumping straight to the final answer.
+
+It currently supports two main workflows:
 
 - `Debug` mode: guided coaching with thoughts, hints, progress tracking, and stats
 - `Fix` mode: corrected code plus a separate change log
 
-The current beta architecture is:
+## Core Highlights
 
-- static frontend on Vercel
-- Flask backend on Render or Railway
-- private beta-access gate before API registration unlocks
-- each user brings their own supported AI provider API key
-- the key is stored only in that user's browser session
-- the backend does not store one shared key for everyone
-
-## Key Features
-
-- Guided debugging flow with `Send Thought`, `Next Hint`, and `I Did It`
+- Guided debugging flow with `Send`, `Next Hint`, and `I Did It`
 - Direct fix mode with syntax-highlighted corrected code
 - Separate change-log output in fix mode
-- Progress bar with red, yellow, and green stages
-- Stats tracking for debug runs, thoughts, hints, wrong turns, bug reads, and best progress
-- Private beta-access gate with invite keys and a master bypass key
+- Normal stats plus advanced learning stats
 - Multi-provider API support: Gemini, OpenAI, Grok, Claude, and DeepSeek
-- Separate `/admin` dashboard for live key status, key toggles, and session termination
-- API registration gate before the app unlocks
+- Optional shared demo mode for quick testing
+- Separate `/admin` dashboard for key and session control
 - `/help`, `clear`, and `clr` commands
 - Dark and light theme support
-- Portable static frontend + lightweight Flask backend
+
+## Open-Source Note
+
+Open AIRA is intended to be maintained as an open-source project.
+
+That means:
+
+- the frontend source is visible to browser users
+- secrets should never be committed to the repo
+- demo keys, admin secrets, and deployment credentials should be provided through environment variables
 
 ## Privacy Model
 
-CodeSentinel now uses a safer per-user API flow:
+Open AIRA uses a browser-session API flow:
 
-- invited users unlock the beta first with a beta-access key
-- every user enters their own API key
-- the key is stored in `sessionStorage` in that browser session only
-- the key is not stored in the backend
-- the key is removed when the user clicks `Remove API Key` or the browser session ends
+- users can enter their own API key
+- the key is stored only in that browser session
+- the key is not stored permanently by the backend
+- users can remove the key at any time
 
-Important:
-
-- your frontend source is still visible to visitors because it is a web app
-- the backend still receives the user's API key in each request so it can talk to the selected AI provider
-- the backend no longer keeps one global key or one shared in-memory session for all users
+The optional shared demo mode should be treated as testing-only.
 
 ## Tech Stack
 
@@ -59,26 +56,30 @@ Important:
 - Flask-CORS
 - Requests
 - Gemini API
-- OpenAI API
-- xAI API
+- OpenAI-compatible APIs
 - Anthropic API
-- DeepSeek API
-- Vercel
-- Render or Railway
 
 ## Project Structure
 
 ```text
-CodeSentinel/
+Open-AIRA/
 |-- assets/
+|   |-- Change log/
+|   `-- Logo/
 |-- backend/
+|   |-- admin_routes.py
+|   |-- key_manager.py
 |   `-- server.py
 |-- frontend/
+|   |-- admin/
+|   |-- assets/
 |   |-- app.js
 |   |-- config.js
 |   |-- index.html
 |   |-- style.css
 |   `-- vercel.json
+|-- key/
+|-- LICENSE
 |-- Procfile
 |-- railway.json
 |-- render.yaml
@@ -124,121 +125,30 @@ Frontend default:
 http://127.0.0.1:5500
 ```
 
-### 4. Use the app
+## How To Use
 
 1. Open the frontend URL
-2. Enter a valid beta-access key
-3. Choose a provider in `API Registration`
-4. Enter your own provider API key
-5. Click `Submit API Key`
-6. Choose `Debug` or `Fix`
-7. Start using CodeSentinel
+2. Choose a provider and submit your own API key, or try the demo
+3. Select `Debug` or `Fix`
+4. Paste code into `Input Code`
+5. Use `Run`
 
-## How Debug Mode Works
+## Debug Mode Flow
 
 1. Paste broken code
 2. Click `Run`
-3. CodeSentinel asks where you think the problem is
-4. Use `Send Thought` to submit your guess
+3. Open AIRA asks where you think the problem is
+4. Use `Send` to submit your guess
 5. Use `Next Hint` when needed
-6. Watch stats and progress change as you move closer or farther from the fix
-7. Finish with `I Did It` or by submitting the correct fix
+6. Finish with `I Did It` or by submitting the correct fix
 
-## How Fix Mode Works
+## Fix Mode Flow
 
 1. Switch to `Fix`
 2. Paste code
 3. Click `Run`
 4. Read the corrected code in the fixed-code card
 5. Read the AI change summary in the change-log card
-6. Use the copy icon to copy only the corrected code
-
-## Deployment
-
-## Backend on Render
-
-This repo already includes:
-
-- [render.yaml](./render.yaml)
-- [Procfile](./Procfile)
-- [requirements.txt](./requirements.txt)
-
-Recommended Render setup:
-
-1. Create a new `Web Service`
-2. Connect your private GitHub repo
-3. Keep the root directory as the repo root
-4. Render should use:
-   - build command: `pip install -r requirements.txt`
-   - start command: `gunicorn --chdir backend server:app`
-5. Deploy
-
-Default health endpoint:
-
-```text
-/api-key-status
-```
-
-## Backend on Railway
-
-This repo also includes:
-
-- [railway.json](./railway.json)
-
-Recommended Railway setup:
-
-1. Create a new project from GitHub
-2. Use the repo root
-3. Railway will use:
-   - start command: `gunicorn --chdir backend server:app`
-
-## Frontend on Vercel
-
-Frontend deploy target:
-
-- set Vercel Root Directory to `frontend`
-
-The frontend folder already includes:
-
-- [frontend/vercel.json](./frontend/vercel.json)
-
-That file adds:
-
-- cleaner URLs
-- basic security headers
-- `no-store` caching for `config.js`
-
-### Production API URL
-
-Frontend API config lives in:
-
-- [frontend/config.js](./frontend/config.js)
-
-Local behavior:
-
-- `localhost` or `127.0.0.1` -> `http://127.0.0.1:5000`
-
-Production default:
-
-- `https://codesentinel-api.onrender.com`
-
-If your real backend URL is different, update this line in [frontend/config.js](./frontend/config.js).
-
-## Why This Launch Model Is Better
-
-Old risk:
-
-- one user could overwrite the API key for everyone
-- one user could remove the API key for everyone
-- in-memory server sessions were weak for multi-user hosting
-
-Current model:
-
-- private beta keys gate access before API registration
-- each user uses their own API key
-- the key stays in that browser session only
-- requests are stateless
-- the backend does not depend on a shared session dictionary for user progress
 
 ## Commands
 
@@ -246,14 +156,48 @@ Current model:
 - `clear`
 - `clr`
 
+## Environment Variables
+
+Recommended backend environment variables:
+
+- `OPEN_AIRA_SESSION_SECRET`
+- `OPEN_AIRA_DEMO_API_KEY`
+- `OPEN_AIRA_ADMIN_USERNAME`
+- `OPEN_AIRA_ADMIN_PASSWORD_HASH`
+
+Backward-compatible `CODESENTINEL_*` names still work, but new deployments should use the `OPEN_AIRA_*` names.
+
+## Deployment
+
+### Backend
+
+Render and Railway config files are already included:
+
+- [render.yaml](./render.yaml)
+- [railway.json](./railway.json)
+- [Procfile](./Procfile)
+
+### Frontend
+
+Frontend deploy target:
+
+- set Vercel Root Directory to `frontend`
+
+API config lives in:
+
+- [frontend/config.js](./frontend/config.js)
+
 ## Current Limitations
 
-- the backend still sees the user API key in each request because it must forward prompts to the selected provider
-- frontend code is public to browser users even if the GitHub repo is private
-- long-term secure account-based key management is not implemented yet
-- beta invite-key claims depend on backend storage persistence across redeploys/restarts
-- fix quality still depends on the selected provider response quality
+- the backend still sees the active API key in each request because it must forward prompts to the selected provider
+- frontend code is public to browser users even when the repo stays private
+- fix quality depends on the selected provider response quality
+- the shared demo connection can be slower, less private, or quota-limited
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](./LICENSE).
 
 ## Author
 
-Built by Sourav.
+Built by 100RAV.

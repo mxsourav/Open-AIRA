@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CodeSentinel</title>
+    <title>Open AIRA</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -17,7 +17,7 @@
     <div class="nt-canvas"></div>
 
     <nav id="mainNav">
-        <a class="nav-brand">CODESENTINEL</a>
+        <a class="nav-brand">OPEN AIRA</a>
 
         <div class="nav-menu">
             <a href="#home" class="nav-link active">Home</a>
@@ -41,11 +41,11 @@
 
                     <h1 class="hero-title">
                         <span class="dot-matrix">AI DEBUG SYSTEM</span>
-                        <img class="hero-logo" id="heroLogo" src="assets/logo_black.png" alt="CodeSentinel" />
+                        <img class="hero-logo" id="heroLogo" src="assets/Logo.png" alt="Open AIRA" />
                     </h1>
 
                     <p class="hero-desc">
-                        AI-powered debugging trainer. Not just answers - learn to solve yourself.
+                        Open-source Adaptive Intelligent Reasoning Assistant for guided debugging. Not just answers - learn to solve yourself.
                     </p>
                 </div>
             </section>
@@ -56,7 +56,7 @@
                 <div class="api-register-card">
                     <div class="api-register-intro">
                         <h2 class="play-title">API Registration</h2>
-                        <p class="section-desc">Choose your AI provider, then enter your own API key to unlock CodeSentinel for this session and test the full debug and fix workflow safely across multiple supported AI platforms.</p>
+                        <p class="section-desc">Choose your AI provider, then enter your own API key to unlock Open AIRA for this session and test the full debug and fix workflow safely across multiple supported AI platforms.</p>
                     </div>
                     <div class="api-register-copy">
                         <div class="api-start-card">
@@ -67,9 +67,6 @@
                                 <li>Enter Your API Key</li>
                                 <li>Start Debugging/Fixing</li>
                             </ol>
-                            <div class="api-start-warning">
-                                <span>Enter your Beta Access Key first. This private beta unlocks API setup only for invited testers and safely keeps the release from spreading too early online today.</span>
-                            </div>
                             <div class="api-start-help">
                                 Run <code>/help</code> in Input Code for a quick guide.
                             </div>
@@ -82,24 +79,20 @@
                             <div class="mono">Provider</div>
                             <div class="api-provider-grid" id="apiProviderGrid"></div>
                             <input id="apiKeyInput" class="api-key-input" type="password" placeholder="Paste your Gemini API key here" />
+                            <div class="api-register-status-row">
+                                <div class="mono api-register-status" id="apiStatusText">API key required before start.</div>
+                            </div>
                             <div class="btn-row api-register-actions">
                                 <button class="btn-system" id="apiSubmitBtn" onclick="submitApiKey()">Submit API Key</button>
                                 <button class="api-remove-btn" id="apiRemoveBtn" onclick="removeApiKey()">Remove API Key</button>
                             </div>
-                            <div class="mono api-register-status" id="apiStatusText">API key required before start.</div>
                             <div class="api-privacy-note">Privacy note: your key stays only in this browser session and is cleared when you remove it or close the session.</div>
-                        </div>
-                        <div class="api-future-card beta-access-card" id="betaAccessCard">
-                            <div class="mono">Beta Access</div>
-                            <p class="beta-access-copy">This beta build is limited to invited testers. Enter your beta access key once in this browser to unlock API registration and the rest of CodeSentinel.</p>
-                            <input id="betaAccessInput" class="beta-access-input" type="text" placeholder="Enter your beta access key" autocomplete="off" spellcheck="false" />
-                            <div class="btn-row beta-access-actions">
-                                <button class="btn-system" id="betaAccessSubmitBtn" onclick="submitBetaAccess()">Unlock Beta</button>
-                                <button class="api-remove-btn" id="betaAccessRemoveBtn" onclick="removeBetaAccess()">Remove Key</button>
-                            </div>
-                            <div class="beta-access-footer">
-                                <div class="mono beta-access-status" id="betaAccessStatus">Beta access key required before API setup.</div>
-                                <div class="mono beta-access-rank" id="betaAccessRank"></div>
+                            <div class="api-demo-card" id="apiDemoCard">
+                                <div class="api-demo-copy">
+                                    <div class="mono api-demo-title">Try Without API</div>
+                                    <p>Try the Demo: This uses a shared connection for testing purposes. It&rsquo;s great for a quick look, but it may be slower and less private. For a faster, 100% private, and unlimited experience, we recommend using your own API key.</p>
+                                </div>
+                                <button class="api-demo-btn" id="apiDemoBtn" onclick="activateDemoMode()">Try with Inbuilt API</button>
                             </div>
                         </div>
                     </div>
@@ -107,7 +100,7 @@
             </section>
 
             <section class="widget codesentinel-widget" id="codesentinel">
-                <span class="label">CodeSentinel by MX100RAV</span>
+                <span class="label">Open AIRA by 100RAV</span>
 
                 <div class="play-header">
                     <div>
@@ -310,7 +303,7 @@
             <footer>
                 <div class="footer-left">
                     <div class="footer-strong">
-                        mx_sourav // CodeSentinel_V_3.1 Beta
+                        mx_sourav // Open_AIRA_V_4.1
                     </div>
                     <div>
                         &copy; <span id="yearNow">2026</span>
@@ -319,7 +312,7 @@
                             SOURAV</a>.
                     </div>
                     <div class="legal">
-                        © CodeSentinel. Built to help learners debug smarter, think deeper, and grow through guided AI-assisted practice.
+                        Open AIRA is open-source and built to help learners debug smarter, think deeper, and grow through guided AI-assisted practice.
                     </div>
                 </div>
                 <div class="footer-right">
@@ -335,6 +328,9 @@
 </body>
 
 </html>
+
+
+
 
 
 

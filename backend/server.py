@@ -1,3 +1,4 @@
+import json
 import os
 
 from flask import Flask, jsonify, request
@@ -18,8 +19,16 @@ CORS(
         "http://localhost:5500",
     ],
 )
-app.config["SECRET_KEY"] = os.getenv("CODESENTINEL_SESSION_SECRET", "codesentinel-dev-admin-secret")
-is_production = os.getenv("RENDER") is not None or os.getenv("CODESENTINEL_ENV", "").lower() == "production"
+def get_env(*names, default=""):
+    for name in names:
+        value = os.getenv(name)
+        if value:
+            return value
+    return default
+
+
+app.config["SECRET_KEY"] = get_env("OPEN_AIRA_SESSION_SECRET", "CODESENTINEL_SESSION_SECRET", default="open-aira-dev-admin-secret")
+is_production = os.getenv("RENDER") is not None or get_env("OPEN_AIRA_ENV", "CODESENTINEL_ENV", default="").lower() == "production"
 app.config["SESSION_COOKIE_SAMESITE"] = "None" if is_production else "Lax"
 app.config["SESSION_COOKIE_SECURE"] = is_production
 init_key_store()
@@ -32,7 +41,9 @@ OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
 DEEPSEEK_CHAT_URL = "https://api.deepseek.com/chat/completions"
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_COUNT_URL = "https://api.anthropic.com/v1/messages/count_tokens"
+NVIDIA_CHAT_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 REQUEST_TIMEOUT = 30
+DEMO_API_KEY = get_env("OPEN_AIRA_DEMO_API_KEY", "CODESENTINEL_DEMO_API_KEY")
 
 device_state = {
     "mode": "idle",
@@ -43,7 +54,7 @@ device_state = {
 }
 
 HELP_MESSAGE = (
-    "How to use CodeSentinel: paste broken code, press Run or Shift + Enter in Input Code, "
+    "How to use Open AIRA: paste broken code, press Run or Shift + Enter in Input Code, "
     "use Send or Shift + Enter in Thought Input, press normal Enter for a new line, "
     "use Next Hint for another clue, or switch to Fix mode for direct correction. Commands: /help, clear, clr"
 )
@@ -145,6 +156,14 @@ PROVIDERS = {
         "kind": "anthropic",
         "model": "claude-sonnet-4-5",
     },
+    "demo": {
+        "label": "Demo",
+        "kind": "openai_compatible",
+        "base_url": NVIDIA_CHAT_URL,
+        "validate_url": None,
+        "model": "tiiuae/falcon3-7b-instruct",
+        "uses_server_key": True,
+    },
 }
 def normalize_command(text):
     stripped = (text or "").strip().lower()
@@ -173,19 +192,26 @@ def get_mode_instruction(debug_mode, stage):
     selected_mode = normalize_debug_mode(debug_mode)
     return DEBUG_MODES[selected_mode][stage]
 def require_beta_access(data):
-    return authenticate_access_key((data or {}).get("beta_access_key"), data, request)
+    return None
 
 
 def get_api_context(data):
+    provider = normalize_provider((data or {}).get("provider"))
+    provider_details = get_provider_details(provider)
+
+    if provider_details.get("uses_server_key"):
+        if not DEMO_API_KEY:
+            raise ValueError("Demo connection is not configured on the server right now.")
+        return DEMO_API_KEY, provider
+
     api_key = str((data or {}).get("api_key", "")).strip()
     if not api_key:
-        raise ValueError("API key is required. Enter your own key to unlock CodeSentinel.")
-    provider = normalize_provider((data or {}).get("provider"))
+            raise ValueError("API key is required. Enter your own key to unlock Open AIRA.")
     return api_key, provider
 
 
 def touch_beta_provider(data, provider):
-    record_key_provider((data or {}).get("beta_access_key"), provider)
+    return None
 
 
 def normalize_debug_state(raw_state):
@@ -515,7 +541,7 @@ def parse_change_log_text(raw_text):
 
 def build_fix_result(api_key, code, provider):
     code_prompt = f"""
-You are CodeSentinel, a coding assistant.
+You are Open AIRA, a coding assistant.
 
 Fix this code and return ONLY the corrected code.
 
@@ -535,7 +561,7 @@ Rules:
         raise RuntimeError("Fix result did not include corrected code")
 
     change_prompt = f"""
-You are CodeSentinel, a coding assistant.
+You are Open AIRA, a coding assistant.
 
 Broken code:
 {code}
@@ -641,7 +667,7 @@ Rules:
 
 def coach_after_bug_found(api_key, code, thought, debug_mode, provider):
     prompt = f"""
-You are CodeSentinel, a friendly debugging coach.
+You are Open AIRA, a friendly debugging coach.
 
 The student has already found the main bug in this broken code:
 {code}
@@ -687,10 +713,11 @@ def api_key_status():
         "configured": False,
         "storage": "browser_session",
         "message": "API keys are stored only in the user's browser session.",
-        "beta_access_required": True,
+        "beta_access_required": False,
         "providers": [
             {"id": provider_id, "label": details["label"]}
             for provider_id, details in PROVIDERS.items()
+            if provider_id != "demo"
         ]
     })
 
@@ -817,7 +844,7 @@ def debug_code():
             return jsonify({"error": str(error)}), 500
 
     prompt = f"""
-You are CodeSentinel, a friendly debugging coach.
+You are Open AIRA, a friendly debugging coach.
 
 The user is in {mode} mode.
 The selected debug mode is {debug_mode}.
@@ -917,7 +944,7 @@ def submit_thought():
         })
     except Exception:
         prompt = f"""
-You are CodeSentinel, a friendly debugging coach.
+You are Open AIRA, a friendly debugging coach.
 
 The student is trying to debug this code:
 {state['code']}
@@ -966,7 +993,7 @@ def next_hint():
     thought = state["last_thought"] or "The student has not shared a guess yet."
 
     prompt = f"""
-You are CodeSentinel, a friendly debugging coach.
+You are Open AIRA, a friendly debugging coach.
 
 The student is debugging this code:
 {state['code']}

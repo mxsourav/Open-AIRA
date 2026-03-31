@@ -18,11 +18,14 @@ USED_INVITE_MESSAGE = "Sorry Bro but this Invitation key is already used. ask 10
 INACTIVE_KEY_MESSAGE = "This invitation key is inactive. Ask 100RAV for a new one."
 MISSING_KEY_MESSAGE = "Beta access key required before API registration."
 EXPIRED_SESSION_MESSAGE = "Beta session expired for this browser. Enter your beta key again."
-MASTER_KEY_FALLBACK = "69mitramandal"
-DEFAULT_ADMIN_USERNAME = os.getenv("CODESENTINEL_ADMIN_USERNAME", "mxsourav")
+MASTER_KEY_FALLBACK = os.getenv("OPEN_AIRA_MASTER_KEY") or os.getenv("CODESENTINEL_MASTER_KEY") or "change-me-open-aira-master"
+DEFAULT_ADMIN_USERNAME = os.getenv("OPEN_AIRA_ADMIN_USERNAME") or os.getenv("CODESENTINEL_ADMIN_USERNAME", "mxsourav")
 DEFAULT_ADMIN_PASSWORD_HASH = os.getenv(
-    "CODESENTINEL_ADMIN_PASSWORD_HASH",
+    "OPEN_AIRA_ADMIN_PASSWORD_HASH",
+    os.getenv(
+        "CODESENTINEL_ADMIN_PASSWORD_HASH",
     "scrypt:32768:8:1$VXTyRPRxJHXaFywB$0bd1e7553ac010930c448dd2bf8d9f21d3c1562c98528e74c3c819c63fca7437607ffac1209c4d8a6e8682adcdc83a3c4cdfd28c7e8ce988c5978920ef623f8a",
+    ),
 )
 PROVIDER_LABELS = {
     "gemini": "Gemini",
@@ -171,7 +174,7 @@ def write_registry_files(conn):
     LEGACY_REGISTRY_PATH.write_text(json.dumps(registry_payload, indent=2), encoding="utf-8")
 
     text_lines = [
-        "CodeSentinel V3.1 Beta Access Keys",
+        "Open AIRA Access Keys",
         "Keep this file private.",
         "",
         "Master Key:",

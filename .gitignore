@@ -10,3 +10,12 @@ Thumbs.db
 .vercel/
 .pytest_cache/
 key/*.sqlite3
+key/*.txt
+key/*.json
+!key/.gitkeep
+Stats Output/
+*_local.log
+*_local.err.log
+*.docx
+*.pdf
+*.zip

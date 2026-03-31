@@ -1,0 +1,8 @@
+Open AIRA V4.1 Release Notes
+
+- Full public-facing rename from Aira / CodeSentinel references to Open AIRA
+- Open-source documentation refresh and MIT license added
+- Main logo flow simplified to a single shared logo asset
+- Demo mode updated to use a private server-side environment key instead of exposing a fallback key in source
+- General repo cleanup and asset organization improvements
+- Minor bug fixes and general polish across branding, docs, and release assets

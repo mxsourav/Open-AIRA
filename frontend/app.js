@@ -46,12 +46,9 @@ function initTypewriter() {
 
 // ===== THEME =====
 function syncHeroLogo() {
-  const html = document.documentElement;
   const heroLogo = document.getElementById("heroLogo");
   if (!heroLogo) return;
-
-  const theme = html.getAttribute("data-theme") || "dark";
-  heroLogo.src = theme === "light" ? "assets/logo_white.png" : "assets/logo_black.png";
+  heroLogo.src = "assets/Logo.png";
 }
 
 document.getElementById("themeBtn").onclick = () => {
@@ -65,12 +62,15 @@ document.getElementById("themeBtn").onclick = () => {
 let mode = "debug";
 let debugState = null;
 let apiReady = false;
-let betaAccessReady = false;
+let betaAccessReady = true;
 let betaAccessMeta = null;
 let advancedStatsVisible = false;
 let debugMode = "beginner";
 let apiProvider = "gemini";
 let apiStatusTimer = null;
+let statsTicker = null;
+const DEMO_PROVIDER = "demo";
+const DEMO_MODE_STORAGE_KEY = "codesentinel_demo_mode";
 
 const DONE_MESSAGE = "Yoo Thats My Boy You Did It";
 const FOUND_MESSAGE = "Good Job you found the bug now try to debug it.";
@@ -185,6 +185,11 @@ const API_PROVIDER_OPTIONS = {
     keyUrl: "https://platform.deepseek.com/api_keys"
   }
 };
+const DEMO_PROVIDER_META = {
+  label: "Demo",
+  accent: "#8a7dff",
+  hint: "Shared demo connection"
+};
 
 const statsState = {
   runs: 0,
@@ -209,7 +214,7 @@ const THOUGHT_INPUT_MIN_HEIGHT = 42;
 const DEBUG_THOUGHT_INPUT_MAX_LINES = 10;
 const DEBUG_THOUGHT_INPUT_MAX_LINES_EXPANDED = 12;
 const FIX_THOUGHT_INPUT_MAX_LINES = 12;
-const APP_CONFIG = window.CODESENTINEL_CONFIG || {};
+const APP_CONFIG = window.OPEN_AIRA_CONFIG || window.CODESENTINEL_CONFIG || {};
 const API_BASE_URL = String(APP_CONFIG.API_BASE_URL || "http://127.0.0.1:5000").replace(/\/+$/, "");
 const BETA_ACCESS_STORAGE_KEY = "codesentinel_beta_access_key";
 const BETA_DEVICE_ID_STORAGE_KEY = "codesentinel_beta_device_id";
@@ -217,7 +222,7 @@ const BETA_DEVICE_LABEL_STORAGE_KEY = "codesentinel_beta_device_label";
 const BETA_SESSION_TOKEN_STORAGE_KEY = "codesentinel_beta_session_token";
 const API_KEY_STORAGE_KEY = "codesentinel_user_api_key";
 const API_PROVIDER_STORAGE_KEY = "codesentinel_api_provider";
-const RELEASE_TIMESTAMP = "2026-03-21T02:32:51+05:30";
+const RELEASE_TIMESTAMP = "2026-04-01T21:15:00+05:30";
 
 function escapeHtml(value) {
   return String(value)
@@ -229,6 +234,8 @@ function escapeHtml(value) {
 }
 
 function getProviderStatusClass(provider = apiProvider) {
+  const raw = String(provider || "").trim().toLowerCase();
+  if (raw === DEMO_PROVIDER) return "api-provider-name-demo";
   const normalized = normalizeProvider(provider);
   if (normalized === "gemini") return "api-provider-name-gemini";
   if (normalized === "openai") return "api-provider-name-openai";
@@ -289,6 +296,9 @@ function normalizeProvider(value) {
 }
 
 function getProviderMeta(provider = apiProvider) {
+  if (String(provider || "").trim().toLowerCase() === DEMO_PROVIDER) {
+    return DEMO_PROVIDER_META;
+  }
   return API_PROVIDER_OPTIONS[normalizeProvider(provider)] || API_PROVIDER_OPTIONS.gemini;
 }
 
@@ -343,7 +353,6 @@ function renderProviderSelector() {
         class="api-provider-option${providerId === apiProvider ? " is-active" : ""}"
         type="button"
         data-provider="${providerId}"
-        data-tooltip="${escapeHtml(details.hint)}"
         style="--provider-accent:${details.accent}"
       >
         <span class="api-provider-mark">
@@ -358,7 +367,6 @@ function renderProviderSelector() {
           <span class="api-provider-badge">${escapeHtml(details.badge)}</span>
         </span>
         <span class="api-provider-name">${escapeHtml(details.label)}</span>
-        <span class="api-provider-tooltip">${escapeHtml(details.hint)}</span>
       </button>
     `)
     .join("");
@@ -374,11 +382,16 @@ function setProvider(nextProvider) {
   sessionStorage.setItem(API_PROVIDER_STORAGE_KEY, normalized);
   renderProviderSelector();
 
+  if (isDemoModeActive()) {
+    setApiGate(true);
+    return;
+  }
+
   if (apiReady && previous !== normalized) {
     handleApiKeyFailure(`Provider changed to ${getProviderLabel(normalized)}. Submit a new ${getProviderLabel(normalized)} API key.`);
     document.getElementById("apiKeyInput").value = "";
   } else if (!apiReady) {
-    setApiGate(false, `Choose ${getProviderLabel(normalized)} and submit your API key to start.`);
+    setApiGate(false, `Choose ${getProviderLabel(normalized)} and submit your API key to start Open AIRA.`);
   }
 }
 
@@ -532,7 +545,7 @@ function buildApiUrl(path) {
 }
 
 function getStoredBetaAccessKey() {
-  return localStorage.getItem(BETA_ACCESS_STORAGE_KEY) || "";
+  return "__beta_disabled__";
 }
 
 function getStoredBetaSessionToken() {
@@ -564,10 +577,8 @@ function buildBetaDeviceProfile() {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "No-TZ";
   const screenInfo = `${window.screen?.width || 0}x${window.screen?.height || 0}`;
   const colorDepth = `${window.screen?.colorDepth || 0}`;
-  const hardware = `${navigator.hardwareConcurrency || 0}`;
-  const memory = `${navigator.deviceMemory || 0}`;
   const touch = `${navigator.maxTouchPoints || 0}`;
-  const raw = [platform, language, timeZone, screenInfo, colorDepth, hardware, memory, touch].join("|");
+  const raw = [platform, language, timeZone, screenInfo, colorDepth, touch].join("|");
 
   return {
     id: `device-${deterministicHash(raw)}`,
@@ -597,14 +608,20 @@ function clearStoredBetaAccessKey() {
   clearStoredBetaSessionToken();
 }
 
+function isDemoModeActive() {
+  return sessionStorage.getItem(DEMO_MODE_STORAGE_KEY) === "true";
+}
+
+function storeDemoMode(active) {
+  if (active) {
+    sessionStorage.setItem(DEMO_MODE_STORAGE_KEY, "true");
+  } else {
+    sessionStorage.removeItem(DEMO_MODE_STORAGE_KEY);
+  }
+}
+
 function getBetaAccessAuth() {
-  const device = getOrCreateBetaDeviceProfile();
-  return {
-    beta_access_key: getStoredBetaAccessKey(),
-    beta_device_id: device.id,
-    beta_device_label: device.label,
-    beta_session_token: getStoredBetaSessionToken(),
-  };
+  return {};
 }
 
 function getStoredApiKey() {
@@ -623,6 +640,24 @@ function clearStoredApiKey() {
   sessionStorage.removeItem(API_KEY_STORAGE_KEY);
 }
 
+function getActiveApiContext() {
+  if (isDemoModeActive()) {
+    return {
+      apiKey: "",
+      provider: DEMO_PROVIDER,
+      label: DEMO_PROVIDER_META.label,
+      demo: true
+    };
+  }
+
+  return {
+    apiKey: getStoredApiKey(),
+    provider: apiProvider,
+    label: getProviderLabel(apiProvider),
+    demo: false
+  };
+}
+
 function isBetaAccessError(message) {
   const text = String(message || "").toLowerCase();
   return text.includes("beta access key") || text.includes("invitation key is already used");
@@ -634,14 +669,14 @@ function isUsedInviteMessage(message) {
 }
 
 function getDefaultApiGateMessage() {
-  if (!betaAccessReady) {
-    return "Enter your beta access key to unlock API registration.";
+  if (isDemoModeActive()) {
+    return "Demo connection active in this browser session.";
   }
 
   const providerLabel = getProviderLabel();
   return apiReady
     ? `${providerLabel} API key ready in this browser session. It is not stored on the server.`
-    : `Choose ${providerLabel} and submit your API key to start.`;
+    : `Choose ${providerLabel} and submit your API key, or try the demo to start Open AIRA.`;
 }
 
 function setBetaStatusText(message) {
@@ -650,7 +685,7 @@ function setBetaStatusText(message) {
   const text = String(message || "");
   status.classList.remove("is-used-link");
   if (isUsedInviteMessage(text)) {
-    const subject = encodeURIComponent("Need a new CodeSentinel beta key");
+  const subject = encodeURIComponent("Need a new Open AIRA beta key");
     const body = encodeURIComponent("Hey 100RAV,\n\nThis beta invitation key is already used. Please send me a new beta access key.\n\nThanks.");
     status.classList.add("is-used-link");
     status.innerHTML = `Used key. Ask <span class="beta-access-owner-inline"><a class="beta-access-owner-link" href="mailto:mx100rav@gmail.com?subject=${subject}&body=${body}">100RAV</a> for another.</span>`;
@@ -697,31 +732,33 @@ function syncBetaDependentUI() {
     document.getElementById("codeInput"),
     document.getElementById("thoughtInput")
   ];
-  const widgetReady = betaAccessReady && apiReady;
+  const widgetReady = apiReady;
 
   if (apiWidget) {
-    apiWidget.classList.toggle("is-beta-locked", !betaAccessReady);
-    apiWidget.classList.toggle("is-awaiting-api", betaAccessReady && !apiReady);
+    apiWidget.classList.remove("is-beta-locked");
+    apiWidget.classList.toggle("is-awaiting-api", !apiReady);
+    apiWidget.classList.toggle("is-demo-active", isDemoModeActive());
   }
 
   if (apiForm) {
-    apiForm.classList.toggle("is-awaiting-api", betaAccessReady && !apiReady);
+    apiForm.classList.toggle("is-awaiting-api", !apiReady);
+    apiForm.classList.toggle("is-demo-active", isDemoModeActive());
   }
 
   document.querySelectorAll(".api-provider-option").forEach((button) => {
-    button.disabled = !betaAccessReady;
+    button.disabled = false;
   });
 
   if (apiInput) {
-    apiInput.disabled = !betaAccessReady;
+    apiInput.disabled = false;
   }
 
   if (apiSubmitBtn) {
-    apiSubmitBtn.disabled = !betaAccessReady;
+    apiSubmitBtn.disabled = false;
   }
 
   if (apiRemoveBtn) {
-    apiRemoveBtn.disabled = !betaAccessReady || !apiReady;
+    apiRemoveBtn.disabled = !apiReady;
   }
 
   if (widget) {
@@ -756,6 +793,7 @@ function handleBetaAccessFailure(message) {
 function handleApiKeyFailure(message) {
   abandonActiveRun();
   clearStoredApiKey();
+  storeDemoMode(false);
   debugState = null;
   setCoachButtons(false);
   setApiGate(false, message || `${getProviderLabel()} API key check failed. Enter your key again.`);
@@ -786,7 +824,7 @@ function getStatsElements() {
   };
 }
 
-function setApiStatusText(message, animate = false) {
+function setApiStatusText(message, animate = false, provider = apiProvider) {
   const status = document.getElementById("apiStatusText");
   if (!status) return;
 
@@ -796,7 +834,7 @@ function setApiStatusText(message, animate = false) {
   }
 
   if (!animate) {
-    status.innerHTML = formatApiStatusMessage(message);
+    status.innerHTML = formatApiStatusMessage(message, provider);
     return;
   }
 
@@ -811,11 +849,35 @@ function setApiStatusText(message, animate = false) {
       apiStatusTimer = setTimeout(typeNext, 22);
     } else {
       apiStatusTimer = null;
-      status.innerHTML = formatApiStatusMessage(message);
+      status.innerHTML = formatApiStatusMessage(message, provider);
     }
   };
 
   typeNext();
+}
+
+function setApiStatusState(message, options = {}) {
+  const { ready = false, error = false, animate = false, provider = (isDemoModeActive() ? DEMO_PROVIDER : apiProvider) } = options;
+  const status = document.getElementById("apiStatusText");
+  if (!status) return;
+  status.classList.toggle("is-ready", ready);
+  status.classList.toggle("is-error", error);
+  setApiStatusText(message, animate, provider);
+}
+
+function syncDemoModeUI() {
+  const demoCard = document.getElementById("apiDemoCard");
+  const demoBtn = document.getElementById("apiDemoBtn");
+  const active = isDemoModeActive();
+
+  if (demoCard) {
+    demoCard.classList.toggle("is-active", active);
+  }
+
+  if (demoBtn) {
+    demoBtn.disabled = active;
+    demoBtn.textContent = active ? "Demo Ready" : "Try with Inbuilt API";
+  }
 }
 
 function normalizeDebugMode(value) {
@@ -942,20 +1004,27 @@ function setBetaGate(ready, message = "", meta = null) {
 function setApiGate(ready, message = "") {
   apiReady = ready;
 
-  const status = document.getElementById("apiStatusText");
   syncBetaDependentUI();
+  syncDemoModeUI();
 
-  if (status) {
-    const statusMessage = message || getDefaultApiGateMessage();
-    status.classList.toggle("is-ready", betaAccessReady && ready);
-    status.classList.toggle("is-error", betaAccessReady && !ready && Boolean(message));
-    setApiStatusText(statusMessage, betaAccessReady && ready);
-  }
+  const statusMessage = message || getDefaultApiGateMessage();
+  setApiStatusState(statusMessage, {
+    ready,
+    error: !ready && Boolean(message),
+    animate: ready
+  });
 }
 
 function syncApiStatus() {
   apiProvider = getStoredProvider();
   renderProviderSelector();
+  syncDemoModeUI();
+
+  if (isDemoModeActive()) {
+    setApiGate(true, "Demo connection active in this browser session.");
+    return;
+  }
+
   const storedKey = getStoredApiKey();
   setApiGate(Boolean(storedKey));
 }
@@ -1047,6 +1116,7 @@ function removeBetaAccess() {
 async function submitApiKey() {
   const input = document.getElementById("apiKeyInput");
   const key = input.value.trim();
+  const demoWasActive = isDemoModeActive();
 
   if (!betaAccessReady) {
     setBetaGate(false, "Enter your beta access key first.");
@@ -1074,28 +1144,69 @@ async function submitApiKey() {
         handleBetaAccessFailure(data.error);
         return;
       }
+
+      if (demoWasActive) {
+        setApiStatusState(data.error || "Manual API key submission failed.", { error: true });
+        return;
+      }
+
       setApiGate(false, data.error || "API key submission failed.");
       return;
     }
 
+    storeDemoMode(false);
     storeApiKey(key);
     input.value = "";
     setApiGate(true, data.message || `${getProviderLabel()} API key ready in this browser session. It is not stored on the server.`);
   } catch (error) {
+    if (demoWasActive) {
+      setApiStatusState(`Backend not reachable for ${getProviderLabel()}. Manual API key was not saved.`, { error: true });
+      return;
+    }
+
     setApiGate(false, `Backend not reachable for ${getProviderLabel()}. Start the server and submit your API key.`);
   }
 }
 
+async function activateDemoMode() {
+  const input = document.getElementById("apiKeyInput");
+
+  try {
+    const res = await fetch(buildApiUrl("/api-key"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider: DEMO_PROVIDER, use_demo: true })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setApiGate(false, data.error || "Demo connection could not start right now.");
+      return;
+    }
+
+    clearStoredApiKey();
+    storeDemoMode(true);
+    if (input) {
+      input.value = "";
+    }
+    setApiGate(true, "Demo connection active in this browser session.");
+  } catch (error) {
+    setApiGate(false, "Demo connection is not reachable right now. Try your own API key instead.");
+  }
+}
+
 function removeApiKey() {
+  const activeContext = getActiveApiContext();
   abandonActiveRun();
   clearStoredApiKey();
+  storeDemoMode(false);
   document.getElementById("apiKeyInput").value = "";
   document.getElementById("chatBox").innerHTML = "> API key removed. Submit a new key to start again.";
   fixState.fixedCode = "";
   fixState.changeLog = [];
   renderFixResults();
   resetSessionState();
-  setApiGate(false, `${getProviderLabel()} API key removed from this browser session.`);
+  setApiGate(false, activeContext.demo ? "Demo connection removed from this browser session." : `${activeContext.label} API key removed from this browser session.`);
 }
 
 function clampProgress(value) {
@@ -1125,6 +1236,8 @@ function beginDebugRun() {
     wrongTurns: 0,
     usedHint: false,
   };
+  ensureStatsTicker();
+  updateStatsUI();
 }
 
 function noteThoughtAttempt() {
@@ -1168,6 +1281,7 @@ function completeActiveRun() {
   }
 
   statsState.activeRun = null;
+  ensureStatsTicker();
 }
 
 function abandonActiveRun() {
@@ -1176,10 +1290,13 @@ function abandonActiveRun() {
   statsState.giveUps += 1;
   statsState.independentSolveStreak = 0;
   statsState.activeRun = null;
+  ensureStatsTicker();
 }
 
 function getAdvancedStats() {
-  const timeToSolve = statsState.solvedRuns
+  const timeToSolve = statsState.activeRun
+    ? `${Math.max(1, Math.round((Date.now() - statsState.activeRun.startedAt) / 1000))}s`
+    : statsState.solvedRuns
     ? `${Math.max(1, Math.round(statsState.totalSolveSeconds / statsState.solvedRuns))}s`
     : "0s";
 
@@ -1192,6 +1309,25 @@ function getAdvancedStats() {
     firstTryAccuracy: formatPercent(calculateRate(statsState.firstTryWins, statsState.runs)),
     wrongTurns: String(statsState.wrongTurns),
   };
+}
+
+function ensureStatsTicker() {
+  if (statsState.activeRun && !statsTicker) {
+    statsTicker = window.setInterval(() => {
+      if (!statsState.activeRun) {
+        window.clearInterval(statsTicker);
+        statsTicker = null;
+        return;
+      }
+      updateStatsUI();
+    }, 1000);
+    return;
+  }
+
+  if (!statsState.activeRun && statsTicker) {
+    window.clearInterval(statsTicker);
+    statsTicker = null;
+  }
 }
 
 function hasRecordedStats() {
@@ -1312,6 +1448,7 @@ function resetAllStats() {
   statsState.lastDelta = 0;
   statsState.activeRun = null;
   statsState.note = "Stats reset. Start a fresh debug run.";
+  ensureStatsTicker();
   updateStatsUI();
 }
 
@@ -1332,12 +1469,13 @@ function setAlreadyCleanStats(message) {
   statsState.lastDelta = 0;
   statsState.activeRun = null;
   statsState.note = message || "Code already looks clean.";
+  ensureStatsTicker();
   updateStatsUI();
 }
 
 function downloadStats() {
   const lines = [
-    "CodeSentinel Stats Export",
+    "Open AIRA Stats Export",
     `Generated: ${new Date().toLocaleString()}`,
     `Mode: ${mode.toUpperCase()}`,
     `Debug Runs: ${statsState.runs}`,
@@ -1350,13 +1488,13 @@ function downloadStats() {
     `Note: ${statsState.note}`,
   ];
 
-  downloadTextFile("codesentinel-stats.txt", lines);
+  downloadTextFile("open-aira-stats.txt", lines);
 }
 
 function downloadAdvancedStats() {
   const advancedStats = getAdvancedStats();
   const lines = [
-    "CodeSentinel Full Stats Record",
+    "Open AIRA Full Stats Record",
     `Generated: ${new Date().toLocaleString()}`,
     "",
     "Normal Stats",
@@ -1382,7 +1520,7 @@ function downloadAdvancedStats() {
     "Made with love by 100RAV. Keep learning, keep cooking bugs."
   ];
 
-  downloadTextFile("codesentinel-full-stats.txt", lines);
+  downloadTextFile("open-aira-full-stats.txt", lines);
 }
 
 function renderFixResults() {
@@ -1518,13 +1656,14 @@ function clearChat() {
 }
 
 function showHelp() {
-  appendChat('<span class="chat-help-title">How to use CodeSentinel:</span>', { html: true });
-  appendChat('<span class="chat-help">1. Paste broken code in the input box.</span>', { html: true });
-  appendChat('<span class="chat-help">2. Click <span class="chat-help-btn">Run</span> or press <span class="chat-help-btn">Shift + Enter</span> in Input Code.</span>', { html: true });
-  appendChat('<span class="chat-help">3. Use <span class="chat-help-btn">Send</span> or press <span class="chat-help-btn">Shift + Enter</span> in Thought Input.</span>', { html: true });
-  appendChat('<span class="chat-help">4. Press normal <span class="chat-help-btn">Enter</span> for a new line while typing.</span>', { html: true });
-  appendChat('<span class="chat-help">5. Use <span class="chat-help-btn">Next Hint</span> if you want another clue.</span>', { html: true });
-  appendChat('<span class="chat-help">6. Use <span class="chat-help-btn">Fix</span> mode for direct corrected code.</span>', { html: true });
+  appendChat('<span class="chat-help-title">How to use Open AIRA:</span>', { html: true });
+  appendChat('<span class="chat-help">1. Submit your own API key or use <span class="chat-help-btn">Try with Inbuilt API</span>.</span>', { html: true });
+  appendChat('<span class="chat-help">2. Paste broken code in the input box.</span>', { html: true });
+  appendChat('<span class="chat-help">3. Click <span class="chat-help-btn">Run</span> or press <span class="chat-help-btn">Shift + Enter</span> in Input Code.</span>', { html: true });
+  appendChat('<span class="chat-help">4. Use <span class="chat-help-btn">Send</span> or press <span class="chat-help-btn">Shift + Enter</span> in Thought Input.</span>', { html: true });
+  appendChat('<span class="chat-help">5. Press normal <span class="chat-help-btn">Enter</span> for a new line while typing.</span>', { html: true });
+  appendChat('<span class="chat-help">6. Use <span class="chat-help-btn">Next Hint</span> if you want another clue.</span>', { html: true });
+  appendChat('<span class="chat-help">7. Use <span class="chat-help-btn">Fix</span> mode for direct corrected code.</span>', { html: true });
   appendChat('<span class="chat-help-command-label">Commands:</span> <span class="chat-help-command-value">/help, clear, clr</span>', { html: true });
 }
 
@@ -1566,7 +1705,8 @@ function handleServerCommand(data) {
 
 async function sendCode() {
   const code = document.getElementById("codeInput").value.trim();
-  const apiKey = getStoredApiKey();
+  const activeApi = getActiveApiContext();
+  const apiKey = activeApi.apiKey;
   const betaAccessKey = getStoredBetaAccessKey();
   const betaAccessAuth = getBetaAccessAuth();
 
@@ -1577,7 +1717,7 @@ async function sendCode() {
     return;
   }
 
-  if (!apiReady || !apiKey) {
+  if (!apiReady || (!activeApi.demo && !apiKey)) {
     appendChat("Register your API key first, then start debugging.", { lineClass: "chat-wrong-reply" });
     return;
   }
@@ -1598,17 +1738,14 @@ async function sendCode() {
   }
 
   if (mode === "debug") {
-    beginDebugRun();
     appendChat("Processing...");
-    statsState.runs += 1;
-    updateProgress(Math.max(statsState.progress, 8), "Debug run started. Read the code slowly.");
   }
 
   try {
     const res = await fetch(buildApiUrl("/debug"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, mode, debug_mode: debugMode, provider: apiProvider, api_key: apiKey, ...betaAccessAuth })
+      body: JSON.stringify({ code, mode, debug_mode: debugMode, provider: activeApi.provider, api_key: apiKey, ...betaAccessAuth })
     });
 
     const data = await res.json();
@@ -1660,13 +1797,19 @@ async function sendCode() {
       return;
     }
 
+    if (mode === "debug") {
+      beginDebugRun();
+      statsState.runs += 1;
+      updateProgress(Math.max(statsState.progress, 8), "Debug run started. Read the code slowly.");
+    }
+
     debugState = data.debug_state || {
       code,
       hint_step: 0,
       bug_found: false,
       last_thought: "",
       debug_mode: debugMode,
-      provider: apiProvider
+      provider: activeApi.provider
     };
     setCoachButtons(true);
     appendChat(data.message || "Where do you think the problem is?");
@@ -1694,7 +1837,8 @@ async function sendCode() {
 
 async function submitThought() {
   const thought = document.getElementById("thoughtInput").value.trim();
-  const apiKey = getStoredApiKey();
+  const activeApi = getActiveApiContext();
+  const apiKey = activeApi.apiKey;
   const betaAccessKey = getStoredBetaAccessKey();
   const betaAccessAuth = getBetaAccessAuth();
 
@@ -1703,7 +1847,7 @@ async function submitThought() {
     return;
   }
 
-  if (!apiReady || !apiKey) {
+  if (!apiReady || (!activeApi.demo && !apiKey)) {
     appendChat("Register your API key first, then send a thought.", { lineClass: "chat-wrong-reply" });
     return;
   }
@@ -1721,7 +1865,7 @@ async function submitThought() {
   statsState.thoughts += 1;
   noteThoughtAttempt();
   debugState.debug_mode = debugMode;
-  debugState.provider = apiProvider;
+  debugState.provider = activeApi.provider;
   appendChat(`My thought: ${thought}`);
   document.getElementById("thoughtInput").value = "";
   autoGrowThoughtInput();
@@ -1731,7 +1875,7 @@ async function submitThought() {
     const res = await fetch(buildApiUrl("/submit-thought"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ debug_state: debugState, thought, debug_mode: debugMode, provider: apiProvider, api_key: apiKey, ...betaAccessAuth })
+      body: JSON.stringify({ debug_state: debugState, thought, debug_mode: debugMode, provider: activeApi.provider, api_key: apiKey, ...betaAccessAuth })
     });
 
     const data = await res.json();
@@ -1783,7 +1927,8 @@ async function submitThought() {
 }
 
 async function nextHint() {
-  const apiKey = getStoredApiKey();
+  const activeApi = getActiveApiContext();
+  const apiKey = activeApi.apiKey;
   const betaAccessKey = getStoredBetaAccessKey();
   const betaAccessAuth = getBetaAccessAuth();
 
@@ -1792,7 +1937,7 @@ async function nextHint() {
     return;
   }
 
-  if (!apiReady || !apiKey) {
+  if (!apiReady || (!activeApi.demo && !apiKey)) {
     appendChat("Register your API key first, then ask for hints.", { lineClass: "chat-wrong-reply" });
     return;
   }
@@ -1806,13 +1951,13 @@ async function nextHint() {
   setStatus("RUNNING", "running");
   appendChat("Asking for next hint...");
   debugState.debug_mode = debugMode;
-  debugState.provider = apiProvider;
+  debugState.provider = activeApi.provider;
 
   try {
     const res = await fetch(buildApiUrl("/hint"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ debug_state: debugState, debug_mode: debugMode, provider: apiProvider, api_key: apiKey, ...betaAccessAuth })
+      body: JSON.stringify({ debug_state: debugState, debug_mode: debugMode, provider: activeApi.provider, api_key: apiKey, ...betaAccessAuth })
     });
 
     const data = await res.json();
@@ -1856,7 +2001,8 @@ async function nextHint() {
 }
 
 async function markDone() {
-  const apiKey = getStoredApiKey();
+  const activeApi = getActiveApiContext();
+  const apiKey = activeApi.apiKey;
   const betaAccessKey = getStoredBetaAccessKey();
   const betaAccessAuth = getBetaAccessAuth();
 
@@ -1865,7 +2011,7 @@ async function markDone() {
     return;
   }
 
-  if (!apiReady || !apiKey) {
+  if (!apiReady || (!activeApi.demo && !apiKey)) {
     appendChat("Register your API key first, then finish the session.", { lineClass: "chat-wrong-reply" });
     return;
   }
@@ -1877,13 +2023,13 @@ async function markDone() {
 
   setStatus("RUNNING", "running");
   debugState.debug_mode = debugMode;
-  debugState.provider = apiProvider;
+  debugState.provider = activeApi.provider;
 
   try {
     const res = await fetch(buildApiUrl("/done"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ debug_state: debugState, debug_mode: debugMode, provider: apiProvider, api_key: apiKey, ...betaAccessAuth })
+      body: JSON.stringify({ debug_state: debugState, debug_mode: debugMode, provider: activeApi.provider, api_key: apiKey, ...betaAccessAuth })
     });
 
     const data = await res.json();
@@ -1914,6 +2060,16 @@ async function markDone() {
   }
 }
 
+function setBetaGate() {
+  betaAccessReady = true;
+  betaAccessMeta = null;
+  syncBetaDependentUI();
+}
+
+async function syncBetaAccess() {
+  setBetaGate(true);
+}
+
 // INIT
 initTypewriter();
 startReleaseTimer();
@@ -1922,19 +2078,22 @@ apiProvider = getStoredProvider();
 renderProviderSelector();
 setCoachButtons(false);
 setMode("debug");
-setBetaGate(false, "⚠ Enter your beta access key to unlock this beta build.");
+setBetaGate(true);
 setApiGate(false);
 updateStatsUI();
 renderFixResults();
 syncAdvancedStatsUI();
 document.getElementById("thoughtInput").addEventListener("input", autoGrowThoughtInput);
 autoGrowThoughtInput();
-document.getElementById("betaAccessInput").addEventListener("input", syncBetaAccessInputMask);
-document.getElementById("betaAccessInput").addEventListener("keydown", (event) => {
-  if (event.key !== "Enter") return;
-  event.preventDefault();
-  submitBetaAccess();
-});
+const betaAccessInput = document.getElementById("betaAccessInput");
+if (betaAccessInput) {
+  betaAccessInput.addEventListener("input", syncBetaAccessInputMask);
+  betaAccessInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    submitBetaAccess();
+  });
+}
 document.getElementById("codeInput").addEventListener("keydown", (event) => {
   if (event.key !== "Enter" || !event.shiftKey) return;
   event.preventDefault();

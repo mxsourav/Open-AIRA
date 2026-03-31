@@ -1,4 +1,4 @@
-const ADMIN_CONFIG = window.CODESENTINEL_CONFIG || {};
+const ADMIN_CONFIG = window.OPEN_AIRA_CONFIG || window.CODESENTINEL_CONFIG || {};
 const ADMIN_API_BASE_URL = String(ADMIN_CONFIG.API_BASE_URL || "http://127.0.0.1:5000").replace(/\/+$/, "");
 const ADMIN_TOKEN_STORAGE_KEY = "codesentinel_admin_token";
 
