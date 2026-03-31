@@ -1,5 +1,6 @@
 Open AIRA V4.1 Release Notes
 
+- Open AIRA continues the project history formerly released as CodeSentinel, and the earlier beta-era notes are preserved alongside this release note
 - Full public-facing rename from Aira / CodeSentinel references to Open AIRA
 - Open-source documentation refresh and MIT license added
 - Main logo flow simplified to a single shared logo asset
