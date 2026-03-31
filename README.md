@@ -70,6 +70,8 @@ Open-AIRA/
 |   |-- admin_routes.py
 |   |-- key_manager.py
 |   `-- server.py
+|-- docs/
+|   `-- (GitHub Pages copy of frontend)
 |-- frontend/
 |   |-- admin/
 |   |-- assets/
@@ -182,6 +184,15 @@ Render and Railway config files are already included:
 Frontend deploy target:
 
 - set Vercel Root Directory to `frontend`
+
+### GitHub Pages
+
+GitHub Pages can publish the static frontend from:
+
+- `main` branch
+- `/docs` folder
+
+The `docs` directory is a publishable copy of `frontend`, so GitHub Pages can serve Open AIRA without exposing the backend files as the site root.
 
 API config lives in:
 
